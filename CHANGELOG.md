@@ -1,16 +1,9 @@
 # Changelog
 
-All notable changes to KOJI will be documented in this file.
+All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-
-## Versioning
-
-KOJI uses a three-part version scheme: `vX.Y.Z`
-
-- **vX.0.0** — Release (new major release milestone)
-- **v0.X.0** — Major update (significant feature or architectural change)
-- **v0.0.X** — Minor/security update (patches, fixes, security hardening)
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [v0.0.0] - 2026-03-16
 
@@ -25,3 +18,5 @@ KOJI uses a three-part version scheme: `vX.Y.Z`
 ### Removed
 
 - Legacy bootstrap files (`Makefile`, `harness/`, `verify/`, `docs/roadmaps/`)
+
+[0.0.0]: https://github.com/irgordon/koji/releases/tag/v0.0.0
