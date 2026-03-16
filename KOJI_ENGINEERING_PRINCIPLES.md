@@ -1,24 +1,24 @@
 # KOJI Engineering Principles
 
-Version: 1.0  
+Version: 1.0
 Status: Project Standard
 
 This document defines the engineering principles governing the KOJI operating system.
 
-The goal of these principles is long-term maintainability, correctness, and architectural integrity.  
-An operating system that becomes difficult to reason about will eventually become unsafe to modify.
+These principles are binding. They exist to preserve long-term maintainability, correctness, and architectural integrity.
+Any change that makes the system harder to reason about is incorrect.
 
 ---
 
 # 1. Core Architectural Model
 
-KOJI is built as a strict layered microkernel system.
+KOJI is a strict layered microkernel system.
 
-- Ring 0: Microkernel
-- Ring 3: Higher Substrate
-- Ring 3: Linux Compatibility Layer
+* Ring 0: Microkernel (mechanism only)
+* Ring 3: Higher Substrate (system implementation)
+* Ring 3: Linux Compatibility Layer (translation only)
 
-The layers must remain strictly separated.
+Layers must remain strictly separated and independently evolvable.
 
 ---
 
@@ -26,204 +26,478 @@ The layers must remain strictly separated.
 
 **Anything that can run in Ring 3 must not run in Ring 0.**
 
-The microkernel exists to provide mechanisms only.  
-Policy belongs outside the kernel.
+The kernel provides mechanisms only.
+All policy must exist in user mode.
 
 ---
 
-# 3. Microkernel Responsibilities
+# 3. System Trust Model
 
-Allowed responsibilities:
+The system assumes:
 
-- hardware abstraction primitives
-- interrupt handling
-- scheduling primitives
-- inter-process communication
-- capability validation
-- address space management
-- thread primitives
-- minimal boot and trap handling
-- deterministic timing primitives required by scheduling
+* Kernel is fully trusted
+* User-mode is untrusted and potentially adversarial
+* IPC participants may be malicious
+* All inputs crossing privilege boundaries are untrusted
 
-The kernel must not contain:
-
-- filesystems
-- network stacks
-- complex drivers unless required for early boot
-- system orchestration
-- resource policy
-- Linux compatibility logic
-- service frameworks
-- convenience abstractions
+All kernel behavior must be correct under adversarial input.
 
 ---
 
-# 4. Layer Responsibilities
+# 4. Non-Negotiable Constraints
 
-## Microkernel
-Purpose: Provide minimal, deterministic primitives.
+The kernel must never:
 
-## Higher Substrate
-Purpose: Implement drivers, filesystems, networking, and system services.
+* implement policy
+* interpret high-level semantics (filesystems, paths, user intent)
+* perform implicit retries or recovery logic
+* allocate resources on behalf of user-mode policy (except explicit ownership transfer)
+* expose internal pointers or memory layout
+* depend on user-mode services for forward progress (outside defined IPC)
+* contain compatibility logic (e.g., Linux behavior)
 
-## Linux Compatibility Layer
-Purpose: Translate Linux semantics into KOJI primitives.
-
-This layer must adapt Linux behavior to KOJI, not the reverse.
-
----
-
-# 5. Engineering Priorities
-
-Priority order:
-
-1. Correctness of invariants
-2. Simplicity of control flow
-3. Explicit ownership and boundaries
-4. Observability and diagnosability
-5. Performance
-6. Stylistic elegance
+All violations must be rejected.
 
 ---
 
-# 6. System Design Rules
+# 5. Boundary Enforcement
 
-## Explicit Boundaries
-Every subsystem must clearly define:
+Layer separation must be mechanically enforced.
 
-- ownership
-- input contracts
-- output guarantees
-- failure modes
-- concurrency model
-- security assumptions
-
-## Mechanism vs Policy
-Kernel components provide mechanism.  
-User-mode services provide policy.
-
-## Explicit Control Flow
-Avoid implicit side effects, hidden control flow, and clever abstractions that obscure behavior.
-
-## Invariant Enforcement
-Critical invariants must be validated at boundaries.
-
-## Failure Transparency
-Failure must always be explicit.
+* Kernel and user-mode must compile separately
+* No shared implementation across privilege boundaries
+* All interaction occurs via defined syscalls and IPC only
+* Shared structures must be ABI-defined, versioned, and validated
+* No implicit cross-layer dependencies
+* No shared mutable state across privilege boundaries
 
 ---
 
-# 7. Concurrency Doctrine
+# 6. Microkernel Responsibilities
 
-Concurrency must be explicit and documented.
+The kernel is minimal and deterministic.
 
-Guidelines:
+Allowed:
 
-- prefer message passing across subsystems
-- prefer single-owner models
-- avoid lock-free algorithms unless necessary
-- document lock ordering rules
-- avoid hidden cross-thread mutation
+* interrupt handling
+* trap handling and bootstrapping
+* scheduling primitives (mechanism only)
+* IPC transport
+* capability validation and resolution
+* address space management
+* thread lifecycle primitives
+* hardware abstraction primitives (strictly defined below)
+
+Not allowed:
+
+* filesystems
+* networking
+* system orchestration
+* resource policy
+* compatibility layers
+* service frameworks
+* buffering, retry logic, or device policy
 
 ---
 
-# 8. Code Structure
+## 6.1 Hardware Abstraction Boundary
+
+Hardware abstraction primitives are strictly limited to:
+
+Allowed:
+
+* register access
+* interrupt routing and acknowledgement
+* MMIO mapping
+* DMA setup and teardown
+* minimal device initialization required for system bring-up
+
+Not allowed:
+
+* device-specific policy
+* buffering strategies
+* retry or recovery logic
+* protocol interpretation
+
+All higher-level device logic must exist in user mode.
+
+---
+
+# 7. Capability Model
+
+Capabilities are the sole authority mechanism.
+
+## 7.1 Representation
+
+* opaque index into a kernel-managed table (CNode)
+* no pointer exposure to user space
+* no encoding of kernel memory addresses
+
+## 7.2 Validation (Required at Every Ingress)
+
+Validation must include:
+
+* existence check
+* rights mask enforcement
+* generation/version check (prevents reuse after revocation)
+
+Validation must occur at every syscall and IPC boundary.
+Prior validation must never be trusted.
+
+## 7.3 Delegation
+
+* capabilities may only be transferred via IPC
+* rights must be subset-restricted on delegation
+* amplification of authority is forbidden
+
+## 7.4 Lifecycle
+
+Capabilities must support:
+
+* creation via explicit kernel operation
+* delegation via IPC
+* revocation (defined below)
+* reuse prevention via generation counters
+
+## 7.5 Revocation Model
+
+* revocation must be supported and explicit
+* revocation invalidates all future use immediately
+* in-flight operations must define behavior (fail or complete deterministically)
+* stale capabilities must fail validation via generation mismatch
+
+Lazy revocation is permitted only if externally indistinguishable from immediate revocation.
+
+---
+
+# 8. IPC Model
+
+IPC is the primary communication mechanism.
+
+## 8.1 Core Semantics
+
+* default: synchronous message passing
+* sender blocks until receiver replies or failure occurs
+* message size must be bounded and ABI-defined
+* all messages validated on send and receive
+
+## 8.2 Failure Model
+
+All IPC must define:
+
+* timeout behavior (explicit)
+* cancellation behavior (explicit)
+* failure return codes (deterministic)
+* deadlock visibility (must be observable, not hidden)
+
+Kernel must not resolve deadlocks.
+
+## 8.3 Scheduling Interaction
+
+* blocking state must be visible to user-mode schedulers
+* kernel must not implement priority inheritance unless explicitly defined as mechanism-only
+* no implicit scheduling policy
+
+## 8.4 Data Transfer Semantics
+
+* copy semantics are default
+* shared memory requires:
+
+  * explicit ownership definition
+  * explicit synchronization model
+  * explicit lifecycle management
+
+---
+
+# 9. Memory Model
+
+The system defines explicit memory behavior.
+
+## 9.1 Kernel Guarantees
+
+* kernel-visible state transitions are sequentially consistent
+* all kernel synchronization primitives must enforce this
+
+## 9.2 User Memory
+
+* no implicit ordering guarantees for shared memory
+* all ordering must be explicitly defined by user-mode
+
+## 9.3 Atomics
+
+* restricted to well-defined kernel primitives
+* relaxed ordering requires explicit justification and documentation
+
+---
+
+# 10. Scheduler Boundary
+
+Scheduling is split between mechanism and policy.
+
+## 10.1 Kernel Responsibilities
+
+* run queue management
+* context switching
+* thread state transitions (ready, blocked, running)
+
+## 10.2 User-Mode Responsibilities
+
+* priority decisions
+* fairness policies
+* CPU allocation strategies
+
+## 10.3 Constraints
+
+* kernel must not encode scheduling policy
+* kernel provides no fairness guarantees
+* contention resolution is not handled in kernel
+
+---
+
+# 11. Concurrency Doctrine
+
+Concurrency must be explicit and constrained.
+
+* prefer message passing over shared memory
+* no shared mutable state without explicit ownership
+* lock-free structures require formal justification
+* lock ordering must be documented and enforced
+* avoid hidden cross-thread mutation
+* priority inversion must be explicitly handled or prevented (not ignored)
+
+---
+
+# 12. Resource Ownership Model
+
+All resources must have explicit ownership.
+
+* kernel allocates only when explicitly requested
+* ownership must be transferable via defined mechanisms
+* resource lifetime must be deterministic
+* leaked resources must be reclaimable via defined policy in user mode
+
+Kernel must not implement reclamation policy.
+
+---
+
+# 13. Determinism Definition
+
+Determinism means:
+
+* identical inputs and scheduling decisions produce identical outcomes
+* all failure paths are explicit and reproducible
+
+Determinism does not imply identical timing across hardware.
+
+---
+
+# 14. System Design Rules
+
+## 14.1 Explicit Boundaries
+
+Every subsystem must define:
+
+* ownership
+* input contracts
+* output guarantees
+* failure modes
+* concurrency model
+* security assumptions
+
+---
+
+## 14.2 Explicit Control Flow
+
+* no hidden state
+* no implicit side effects
+* no opaque abstractions
+* behavior must be traceable from entry to exit
+
+---
+
+## 14.3 Invariant Enforcement
+
+All critical invariants must be validated at:
+
+* syscall ingress
+* IPC boundaries
+* capability resolution
+* scheduling transitions
+
+No mutation before validation.
+
+---
+
+## 14.4 Failure Transparency
+
+* all failures must be explicit
+* no silent failure
+* no partial mutation before validation
+* deterministic error paths required
+
+Undefined behavior is unacceptable.
+
+---
+
+# 15. Kernel Object Model
+
+All kernel objects must be:
+
+* opaque
+* capability-addressable only
+* inaccessible without valid capability
+* lifecycle-managed (explicit creation and destruction)
+
+No direct references are exposed to user space.
+
+---
+
+# 16. Bootstrapping and Trust Root
+
+System initialization must define:
+
+* initial capability set (root capabilities)
+* first user-mode thread creation
+* initial scheduler bootstrap
+* kernel → user transition guarantees
+
+Boot sequence must be deterministic and auditable.
+
+---
+
+# 17. Error Model
+
+Errors must be:
+
+* globally defined and enumerable
+* deterministic and reproducible
+* classified as:
+
+  * terminal (must not retry)
+  * retryable (user-mode decision only)
+
+Kernel must not perform retries.
+
+---
+
+# 18. Code Structure
 
 ## Naming
-Names must communicate purpose, subsystem, and mutation behavior.
 
-Examples:
+Names must encode:
 
-- `cap_validate_handle`
-- `ipc_copy_in_message`
-- `sched_enqueue_runnable`
-- `linux_open_translate_flags`
+* subsystem
+* behavior
+* ownership
 
 ## Functions
-Functions should:
 
-- perform one conceptual operation
-- maintain one invariant story
-- keep control flow obvious
-- validate inputs before mutation
+* one conceptual operation
+* explicit control flow
+* validate before mutation
 
 ## Data Structures
-Kernel data structures must be small, explicit, and ownership-safe.
+
+* small and explicit
+* clear ownership and lifecycle
+* no global mutable structures
 
 ## Source Layout
-Organize code by subsystem.  
-Architecture-specific code must not leak into generic subsystems.
+
+* organized by subsystem
+* architecture-specific code isolated
+* no cross-layer contamination
 
 ---
 
-# 9. Comments
+# 19. Comments
 
-Comments are required for:
+Comments must explain:
 
-- invariants
-- security assumptions
-- concurrency behavior
-- hardware constraints
-- non-obvious design choices
+* invariants
+* security assumptions
+* concurrency behavior
+* non-obvious design decisions
 
-A comment should explain why, not what.
-
----
-
-# 10. Testing Principles
-
-Tests must verify behavior and invariants.
-
-Test categories:
-
-- unit tests
-- invariant tests
-- IPC contract tests
-- compatibility tests
-- fault injection tests
-
-A test should verify one property or invariant.
+Comments must not restate code.
 
 ---
 
-# 11. Code Smells
+# 20. Testing Requirements
 
-- rigidity
-- fragility
-- immobility
-- needless complexity
-- needless repetition
-- opacity
+Testing is mandatory.
 
----
+Required:
 
-# 12. System-Specific Smells
+* unit tests
+* invariant validation tests
+* syscall fuzzing
+* IPC contract testing
+* capability misuse testing
+* fault injection at all boundaries
+* deterministic replay for concurrency issues
 
-- policy logic inside kernel
-- architecture assumptions in generic code
-- hidden allocations in critical paths
-- implicit ownership transfer
-- compatibility hacks bypassing kernel primitives
-- ambiguous error codes
-- helper layers hiding privilege transitions
-- temporary kernel shortcuts for user-mode features
+Tests must be deterministic, isolated, and verify a single property.
 
 ---
 
-# 13. Code Review Standard
+# 21. Code Review Standard
 
-Code is acceptable only if a future developer can:
+Code is acceptable only if a reviewer can:
 
 1. understand the subsystem without external explanation
-2. trace control flow deterministically
+2. trace all control flow deterministically
 3. identify ownership boundaries
-4. modify behavior without violating invariants
+4. identify all invariants
+5. determine how invariants could be violated
+6. modify behavior without systemic risk
+
+If not, the code must be rejected.
 
 ---
 
-# 14. Final Principle
+# 22. Kernel Change Justification
 
-KOJI must remain understandable.
+Any kernel addition must include:
 
-A system that cannot be understood cannot be safely changed.  
-A system that cannot be safely changed will eventually fail.
+* justification for why it cannot exist in Ring 3
+* security impact analysis
+* invariant impact analysis
+
+Weak justification results in rejection.
+
+---
+
+# 23. Deletion Bias
+
+* removing code is preferred to adding abstraction
+* duplication is acceptable until invariants stabilize
+* abstraction must follow understanding, not precede it
+
+---
+
+# 24. Architectural Drift Prevention
+
+Indicators of failure:
+
+* policy logic entering kernel
+* expansion of hardware abstraction scope
+* increasing cross-layer coupling
+* hidden ownership or unclear boundaries
+* convenience abstractions in critical paths
+
+When detected:
+
+* refactor immediately
+* do not defer correction
+* do not justify temporary violations
+
+---
+
+# Final Principle
+
+A system that cannot be understood cannot be safely modified.
+
+Maintainability is a security property.
+
+Every line of code must preserve the ability for future engineers to reason about the system.

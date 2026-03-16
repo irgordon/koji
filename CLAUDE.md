@@ -6,55 +6,46 @@ Claude Code must operate under strict architectural and task discipline.
 
 ---
 
-## Source of Authority
+## Toolchain & Language Constraints
 
-The following files are authoritative and must be read before any work:
+* **Kernel**
 
-- `AGENTS.md` (repository root)
-- `kernel/AGENTS.md`
-- `tests/AGENTS.md`
-- `tools/AGENTS.md`
-- `harness/AGENTS.md`
-- `harness/PHASES.yaml`
+  * Language: **Odin only**
+  * No other languages permitted
 
-If any instruction conflicts, **AGENTS.md files take precedence**.
+* **Userspace**
 
----
+  * Language: **Go only**
+  * No other languages permitted
 
-## Operating Rules
+* **Build Environment**
 
-Claude Code must:
+  * Platform: **macOS toolchains only**
+  * No cross-platform build logic in this phase
+  * No alternative compilers or environments
 
-- Follow the active phase defined in `harness/PHASES.yaml`
-- Execute only explicitly provided tasks
-- Modify only files listed in the task’s allowed paths
-- Stop immediately once acceptance checks pass
-- Refuse speculative or exploratory changes
+* **Python Tooling**
 
-Claude Code must not:
-
-- Invent tasks or expand scope
-- Modify forbidden paths
-- Edit generated files directly
-- Introduce kernel policy or Linux semantics
+  * Python usage limited to tooling only
+  * Must run inside a **virtual environment (venv)**
+  * Dependency management via **PyYAML**
+  * No global Python dependencies allowed
 
 ---
 
-## Architecture Reminder
+## Invariants
 
-- Ring 0: Microkernel (mechanism only)
-- Ring 3: Higher Substrate
-- Ring 3: Linux Compatibility Layer
-
-Anything that can run in Ring 3 must not run in Ring 0.
+* Kernel and userspace languages must never mix
+* Python must never be part of runtime or kernel code
+* All Python tooling must be isolated to venv
+* No implicit or undeclared toolchain dependencies
 
 ---
 
-## Definition of Done
+## Validation
 
-Work is complete only when:
+* Verify no non-Odin files exist in `kernel/`
+* Verify no non-Go files exist in `userspace/`
+* Verify Python usage is limited to `tools/` and uses venv
+* Verify PyYAML is declared and isolated
 
-- Required outputs exist
-- Acceptance checks pass
-- Scope boundaries were respected
-- No unrelated repository drift occurred
