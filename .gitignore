@@ -4,6 +4,6 @@
 *.out
 *.bin
 dist/
-build/
+/build/
 .claude/
 .venv/
