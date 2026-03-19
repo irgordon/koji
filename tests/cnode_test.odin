@@ -26,11 +26,23 @@
 //   T08 — cap_replace: rights narrowed, old handle invalidated, new handle valid
 //   T09 — cap_close on last ref triggers obj_deref (ref_count → 0)
 //   T10 — cap_duplicate without RIGHT_DUPLICATE → ERR_ACCESS_DENIED
+//   T11 — cap_alloc(nil, rights) fails cleanly
+//   T12 — one of many closes does not destroy; last close destroys
+//   T13 — obj_deref destroy hook runs once; extra deref at zero is no-op
+//   T14 — obj_is_live rejects Dying and Dead
+//   T15 — out-of-range syscall returns ERR_INVALID_SYSCALL
+//   T16 — in-range nil dispatch slot returns ERR_INVALID_SYSCALL
+//   T17 — malformed ingress fails before handler dispatch
+//   T18 — SYS_ABI_INFO rejects non-zero unused args
+//   T19 — nil ingress frame returns ERR_INVALID_ARGS
+//   T20 — obj_ref rejects nil/non-live/overflow
+//   T21 — obj_deref rejects nil/non-live/zero-ref
 // ============================================================
 package cnode_test
 
 import "core:fmt"
 import "core:os"
+import abi "../abi/generated/odin"
 
 // ---- Minimal type replicas (no foreign import, no freestanding) ----
 
@@ -76,15 +88,21 @@ Obj_Header :: struct {
 obj_init :: proc(hdr: ^Obj_Header, t: Obj_Type, destroy: Obj_Destroy_Fn = nil) {
 	hdr.obj_type   = t
 	hdr.state      = .Live
-	hdr.ref_count  = 1
+	hdr.ref_count  = 0
 	hdr.destroy_fn = destroy
 }
 
-obj_ref :: proc(hdr: ^Obj_Header) {
+obj_ref :: proc(hdr: ^Obj_Header) -> bool {
+	if hdr == nil { return false }
+	if hdr.state != .Live { return false }
+	if hdr.ref_count == 0xFFFF_FFFF { return false }
 	hdr.ref_count += 1
+	return true
 }
 
 obj_deref :: proc(hdr: ^Obj_Header) -> bool {
+	if hdr == nil { return false }
+	if hdr.state != .Live { return false }
 	if hdr.ref_count == 0 { return false }
 	hdr.ref_count -= 1
 	if hdr.ref_count != 0 { return false }
@@ -128,9 +146,11 @@ cap_table_init :: proc() {
 }
 
 cap_alloc :: proc(obj: ^Obj_Header, rights: Rights) -> Handle {
+	if obj == nil { return HANDLE_INVALID }
 	if !obj_is_live(obj) { return HANDLE_INVALID }
 	for i in 0..<CAP_TABLE_SIZE {
 		if g_cap_table.entries[i].object == nil {
+			if !obj_ref(obj) { return HANDLE_INVALID }
 			gen := g_cap_table.entries[i].generation
 			g_cap_table.entries[i] = Cap_Entry{object=obj, rights=rights, generation=gen}
 			return handle_make(i, gen)
@@ -172,12 +192,13 @@ cap_duplicate :: proc(h: Handle, requested_rights: Rights) -> (Handle, Status) {
 	if src == nil { return HANDLE_INVALID, ERR_INVALID_HANDLE }
 	if !cap_has_rights(src, RIGHT_DUPLICATE) { return HANDLE_INVALID, ERR_ACCESS_DENIED }
 	effective := src.rights & requested_rights
-	obj_ref(src.object)
+	if !obj_ref(src.object) { return HANDLE_INVALID, ERR_NO_MEMORY }
 	new_handle := cap_alloc(src.object, effective)
 	if new_handle == HANDLE_INVALID {
 		obj_deref(src.object)
 		return HANDLE_INVALID, ERR_NO_MEMORY
 	}
+	obj_deref(src.object)
 	return new_handle, OK
 }
 
@@ -195,6 +216,7 @@ cap_replace :: proc(h: Handle, new_rights: Rights) -> (Handle, Status) {
 
 g_pass := 0
 g_fail := 0
+g_destroy_count := 0
 
 check :: proc(name: string, cond: bool) {
 	if cond {
@@ -204,6 +226,10 @@ check :: proc(name: string, cond: bool) {
 		fmt.printf("  FAIL  %s\n", name)
 		g_fail += 1
 	}
+}
+
+counting_destroy_fn :: proc(hdr: ^Obj_Header) {
+	g_destroy_count += 1
 }
 
 // ---- Tests ----
@@ -348,25 +374,20 @@ test_t08_cap_replace :: proc() {
 test_t09_last_ref_destruction :: proc() {
 	fmt.println("[T09] cap_close on last reference triggers obj_deref (ref_count → 0)")
 	cap_table_init()
-	destroyed := false
-
-	destroy_fn :: proc(hdr: ^Obj_Header) {
-		// Can't easily close a closed var, but we prove the hook fired
-		// by checking ref_count == 0 after obj_deref returns.
-	}
+	g_destroy_count = 0
 
 	obj: Obj_Header
-	obj_init(&obj, OBJ_NONE, destroy_fn)
-	check("initial ref_count = 1", obj.ref_count == 1)
+	obj_init(&obj, OBJ_NONE, counting_destroy_fn)
+	check("initial ref_count = 0", obj.ref_count == 0)
 
 	h := cap_alloc(&obj, RIGHT_READ)
-	check("alloc does not change ref_count", obj.ref_count == 1)
+	check("alloc publishes one ref", obj.ref_count == 1)
 
 	st := cap_close(h)
 	check("cap_close returns OK", st == OK)
+	check("destroy hook called exactly once", g_destroy_count == 1)
 	check("ref_count == 0 after last close", obj.ref_count == 0)
 	check("object state is Dead after last close", obj.state == .Dead)
-	_ = destroyed
 }
 
 test_t10_duplicate_requires_right :: proc() {
@@ -382,6 +403,219 @@ test_t10_duplicate_requires_right :: proc() {
 	check("duplicate without RIGHT_DUPLICATE returns ERR_ACCESS_DENIED", st == ERR_ACCESS_DENIED)
 	check("returned handle is HANDLE_INVALID", h2 == HANDLE_INVALID)
 	check("ref_count unchanged after failed duplicate", obj.ref_count == 1)
+}
+
+test_t11_cap_alloc_nil_fails :: proc() {
+	fmt.println("[T11] cap_alloc(nil, rights) fails cleanly")
+	cap_table_init()
+	h := cap_alloc(nil, RIGHT_READ)
+	check("cap_alloc(nil, RIGHT_READ) == HANDLE_INVALID", h == HANDLE_INVALID)
+}
+
+test_t12_close_multi_handle_last_destroys :: proc() {
+	fmt.println("[T12] closing one of multiple handles does not destroy; last close does")
+	cap_table_init()
+	g_destroy_count = 0
+
+	obj: Obj_Header
+	obj_init(&obj, OBJ_NONE, counting_destroy_fn)
+	h1 := cap_alloc(&obj, RIGHT_READ | RIGHT_DUPLICATE)
+	check("first handle alloc succeeds", h1 != HANDLE_INVALID)
+	check("ref_count is 1 after first publish", obj.ref_count == 1)
+
+	h2, st_dup := cap_duplicate(h1, RIGHT_READ)
+	check("duplicate succeeds", st_dup == OK)
+	check("second handle is valid", h2 != HANDLE_INVALID)
+	check("ref_count is 2 after duplicate publish", obj.ref_count == 2)
+
+	st1 := cap_close(h1)
+	check("first close returns OK", st1 == OK)
+	check("object still live after closing one handle", obj.state == .Live)
+	check("destroy hook not called after first close", g_destroy_count == 0)
+	check("ref_count is 1 after first close", obj.ref_count == 1)
+
+	st2 := cap_close(h2)
+	check("second close returns OK", st2 == OK)
+	check("destroy hook called exactly once on last close", g_destroy_count == 1)
+	check("object is Dead after last close", obj.state == .Dead)
+	check("ref_count is 0 after last close", obj.ref_count == 0)
+}
+
+test_t13_obj_deref_once_and_extra_noop :: proc() {
+	fmt.println("[T13] obj_deref runs destroy hook once; extra deref at zero is clean no-op")
+	cap_table_init()
+	g_destroy_count = 0
+
+	obj: Obj_Header
+	obj_init(&obj, OBJ_NONE, counting_destroy_fn)
+	h := cap_alloc(&obj, RIGHT_READ)
+	check("alloc succeeds", h != HANDLE_INVALID)
+	check("ref_count is 1 before close", obj.ref_count == 1)
+
+	st := cap_close(h)
+	check("close returns OK", st == OK)
+	check("destroy hook called once after close", g_destroy_count == 1)
+
+	destroyed_again := obj_deref(&obj)
+	check("extra obj_deref at zero returns false", destroyed_again == false)
+	check("destroy hook still called exactly once", g_destroy_count == 1)
+}
+
+test_t14_obj_live_rejects_dying_dead :: proc() {
+	fmt.println("[T14] obj_is_live rejects Dying and Dead")
+	obj: Obj_Header
+	obj_init(&obj, OBJ_NONE)
+	check("fresh object is live", obj_is_live(&obj))
+	obj.state = .Dying
+	check("dying object is not live", !obj_is_live(&obj))
+	obj.state = .Dead
+	check("dead object is not live", !obj_is_live(&obj))
+}
+
+// ---- Minimal syscall dispatch model checks ----
+
+SYSCALL_COUNT :: u32(abi.SYSCALL_COUNT)
+SYS_ABI_INFO  :: u32(abi.SYS_ABI_INFO)
+
+Syscall_Frame :: struct {
+	syscall_num: u64,
+	arg0:        u64,
+	arg1:        u64,
+	arg2:        u64,
+	arg3:        u64,
+	arg4:        u64,
+	arg5:        u64,
+}
+
+Syscall_Handler :: #type proc(frame: ^Syscall_Frame) -> Status
+
+dispatch_table: [SYSCALL_COUNT]Syscall_Handler
+dispatch_counter := 0
+
+frame_validate_ingress :: proc(frame: ^Syscall_Frame) -> Status {
+	if frame == nil {
+		return ERR_INVALID_ARGS
+	}
+	if frame.syscall_num >> 32 != 0 {
+		return ERR_INVALID_ARGS
+	}
+	return OK
+}
+
+frame_validate_unused_args :: proc(frame: ^Syscall_Frame, used_count: u32) -> Status {
+	args := [6]u64{frame.arg0, frame.arg1, frame.arg2, frame.arg3, frame.arg4, frame.arg5}
+	for i := used_count; i < 6; i += 1 {
+		if args[i] != 0 {
+			return ERR_INVALID_ARGS
+		}
+	}
+	return OK
+}
+
+sys_abi_info_model :: proc(frame: ^Syscall_Frame) -> Status {
+	dispatch_counter += 1
+	if frame_validate_unused_args(frame, 0) != OK {
+		return ERR_INVALID_ARGS
+	}
+	frame.arg2 = 0x00010100
+	return OK
+}
+
+koji_syscall_dispatch_model :: proc(frame: ^Syscall_Frame) -> Status {
+	if frame_validate_ingress(frame) != OK {
+		return ERR_INVALID_ARGS
+	}
+	num := u32(frame.syscall_num)
+	if num >= SYSCALL_COUNT {
+		return ERR_INVALID_SYSCALL
+	}
+	handler := dispatch_table[num]
+	if handler == nil {
+		return ERR_INVALID_SYSCALL
+	}
+	return handler(frame)
+}
+
+test_t15_unknown_syscall_status :: proc() {
+	fmt.println("[T15] unknown syscall number returns ERR_INVALID_SYSCALL")
+	dispatch_counter = 0
+	dispatch_table = [SYSCALL_COUNT]Syscall_Handler{}
+	frame := Syscall_Frame{syscall_num = u64(SYSCALL_COUNT)}
+	st := koji_syscall_dispatch_model(&frame)
+	check("out-of-range syscall returns ERR_INVALID_SYSCALL", st == ERR_INVALID_SYSCALL)
+	check("no handler dispatched", dispatch_counter == 0)
+}
+
+test_t16_in_range_nil_slot_status :: proc() {
+	fmt.println("[T16] in-range nil dispatch slot returns ERR_INVALID_SYSCALL")
+	dispatch_counter = 0
+	dispatch_table = [SYSCALL_COUNT]Syscall_Handler{}
+	frame := Syscall_Frame{syscall_num = 1}
+	st := koji_syscall_dispatch_model(&frame)
+	check("nil slot syscall returns ERR_INVALID_SYSCALL", st == ERR_INVALID_SYSCALL)
+	check("no handler dispatched", dispatch_counter == 0)
+}
+
+test_t17_malformed_ingress_before_dispatch :: proc() {
+	fmt.println("[T17] malformed ingress fails before handler dispatch")
+	dispatch_counter = 0
+	dispatch_table = [SYSCALL_COUNT]Syscall_Handler{}
+	dispatch_table[SYS_ABI_INFO] = sys_abi_info_model
+	frame := Syscall_Frame{syscall_num = (1 << 32) | u64(SYS_ABI_INFO)}
+	st := koji_syscall_dispatch_model(&frame)
+	check("malformed ingress returns ERR_INVALID_ARGS", st == ERR_INVALID_ARGS)
+	check("handler not dispatched for malformed ingress", dispatch_counter == 0)
+}
+
+test_t18_sys_abi_info_unused_args :: proc() {
+	fmt.println("[T18] SYS_ABI_INFO rejects non-zero unused args")
+	dispatch_counter = 0
+	dispatch_table = [SYSCALL_COUNT]Syscall_Handler{}
+	dispatch_table[SYS_ABI_INFO] = sys_abi_info_model
+	frame := Syscall_Frame{syscall_num = u64(SYS_ABI_INFO), arg0 = 1}
+	st := koji_syscall_dispatch_model(&frame)
+	check("SYS_ABI_INFO with non-zero arg returns ERR_INVALID_ARGS", st == ERR_INVALID_ARGS)
+	check("handler dispatch counted exactly once", dispatch_counter == 1)
+}
+
+test_t19_nil_ingress_frame_rejected :: proc() {
+	fmt.println("[T19] nil ingress frame returns ERR_INVALID_ARGS")
+	dispatch_counter = 0
+	dispatch_table = [SYSCALL_COUNT]Syscall_Handler{}
+	st := koji_syscall_dispatch_model(nil)
+	check("nil frame returns ERR_INVALID_ARGS", st == ERR_INVALID_ARGS)
+	check("no handler dispatched", dispatch_counter == 0)
+}
+
+test_t20_obj_ref_rejection_paths :: proc() {
+	fmt.println("[T20] obj_ref rejects nil, non-live, and overflow")
+	check("obj_ref(nil) returns false", !obj_ref(nil))
+
+	obj: Obj_Header
+	obj_init(&obj, OBJ_NONE)
+	obj.state = .Dying
+	check("obj_ref on Dying object returns false", !obj_ref(&obj))
+	obj.state = .Dead
+	check("obj_ref on Dead object returns false", !obj_ref(&obj))
+
+	obj.state = .Live
+	obj.ref_count = 0xFFFF_FFFF
+	check("obj_ref at max refcount returns false", !obj_ref(&obj))
+}
+
+test_t21_obj_deref_rejection_paths :: proc() {
+	fmt.println("[T21] obj_deref rejects nil, non-live, and zero-ref")
+	check("obj_deref(nil) returns false", !obj_deref(nil))
+
+	obj: Obj_Header
+	obj_init(&obj, OBJ_NONE)
+	check("obj_deref at zero refcount returns false", !obj_deref(&obj))
+
+	obj.ref_count = 1
+	obj.state = .Dying
+	check("obj_deref on Dying object returns false", !obj_deref(&obj))
+	obj.state = .Dead
+	check("obj_deref on Dead object returns false", !obj_deref(&obj))
 }
 
 // ---- Main ----
@@ -400,6 +634,17 @@ main :: proc() {
 	test_t08_cap_replace()
 	test_t09_last_ref_destruction()
 	test_t10_duplicate_requires_right()
+	test_t11_cap_alloc_nil_fails()
+	test_t12_close_multi_handle_last_destroys()
+	test_t13_obj_deref_once_and_extra_noop()
+	test_t14_obj_live_rejects_dying_dead()
+	test_t15_unknown_syscall_status()
+	test_t16_in_range_nil_slot_status()
+	test_t17_malformed_ingress_before_dispatch()
+	test_t18_sys_abi_info_unused_args()
+	test_t19_nil_ingress_frame_rejected()
+	test_t20_obj_ref_rejection_paths()
+	test_t21_obj_deref_rejection_paths()
 
 	fmt.println()
 	fmt.printf("=== Results: %d passed, %d failed ===\n", g_pass, g_fail)

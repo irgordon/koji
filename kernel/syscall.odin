@@ -7,19 +7,26 @@
 //
 // Ingress Steps (must happen in this order, no exceptions)
 // --------------------------------------------------------
-//   1. frame_validate_ingress — reject malformed frame structure
+//   1. frame nil check
+//   2. frame_validate_ingress — reject malformed frame structure
 //      (upper 32 bits of syscall_num must be zero)
-//   2. Bounds check syscall_num against SYSCALL_COUNT
-//   3. Nil-handler check (number in range but not yet implemented)
-//   4. Dispatch to registered handler
+//   3. Bounds check syscall_num against SYSCALL_COUNT
+//   4. Nil-handler check (number in range but not yet implemented)
+//   5. Dispatch to registered handler
 //
-// No state is mutated before step 4.
+// No state is mutated before step 5.
 // Every exit path returns a defined ABI status code.
 //
 // Error Code Map
 // --------------
-//   ERR_INVALID_ARGS    — malformed frame (reserved bits set)
-//   ERR_INVALID_SYSCALL — syscall number out of range or unimplemented
+//   ERR_INVALID_ARGS    — nil frame or malformed frame (reserved bits set)
+//   ERR_INVALID_SYSCALL — syscall number out of range or in-range nil slot
+//
+// Return Convention
+// -----------------
+//   Status is returned as the function return value (rax on syscall exit).
+//   Optional payloads are written to frame output fields (for example arg2/rdx)
+//   only on successful syscall handling.
 //
 // Handlers live in their respective subsystem files:
 //   cap_syscalls.odin   — SYS_HANDLE_CLOSE/DUPLICATE/REPLACE
@@ -64,25 +71,30 @@ syscall_table_init :: proc "c" () {
 
 @(export, link_name="koji_syscall_dispatch")
 koji_syscall_dispatch :: proc "c" (frame: ^abi.Syscall_Frame) -> abi.Status {
-	// Step 1: structural frame validation (reserved bits, etc.)
+	// Step 1: nil frame pointer rejection.
+	if frame == nil {
+		return abi.ERR_INVALID_ARGS
+	}
+
+	// Step 2: structural frame validation (reserved bits, etc.)
 	// Must happen before inspecting syscall_num.
 	if frame_validate_ingress(frame) != abi.OK {
 		return abi.ERR_INVALID_ARGS
 	}
 
-	// Step 2: syscall number bounds check.
+	// Step 3: syscall number bounds check.
 	num := u32(frame.syscall_num)
 	if num >= abi.SYSCALL_COUNT {
 		return abi.ERR_INVALID_SYSCALL
 	}
 
-	// Step 3: nil handler → not yet implemented.
+	// Step 4: nil handler → not yet implemented.
 	handler := syscall_table[num]
 	if handler == nil {
 		return abi.ERR_INVALID_SYSCALL
 	}
 
-	// Step 4: dispatch.  No state was mutated above this line.
+	// Step 5: dispatch.  No state was mutated above this line.
 	return handler(frame)
 }
 
