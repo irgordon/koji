@@ -10,6 +10,7 @@
 #   make            — build kernel ELF
 #   make clean      — remove build artifacts
 #   make iso        — build bootable ISO (requires xorriso + limine)
+#   make test       — run Phase 1 CNode invariant tests (requires odin)
 # ============================================================
 
 ARCH       := amd64
@@ -51,7 +52,7 @@ ODIN_OBJ   := $(BUILD_DIR)/kernel.o
 # Targets
 # ============================================================
 
-.PHONY: all clean iso
+.PHONY: all clean iso test
 
 all: $(KERNEL_ELF)
 
@@ -80,6 +81,14 @@ $(BUILD_DIR)/arch:
 # ---- Clean ----
 clean:
 	rm -rf $(BUILD_DIR)
+
+# ---- Test (Phase 1 CNode invariant tests) ----
+# Runs a standalone native Odin test binary that validates CNode behavioral
+# invariants without requiring the kernel's freestanding build environment.
+test:
+	@echo "=== Running KOJI Phase 1 CNode invariant tests ==="
+	$(ODIN) run tests/cnode_test.odin -file
+	@echo "=== Tests complete ==="
 
 # ---- ISO (placeholder — requires Limine setup) ----
 iso: $(KERNEL_ELF)

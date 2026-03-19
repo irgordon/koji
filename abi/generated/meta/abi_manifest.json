@@ -1,0 +1,488 @@
+{
+  "generator_version": "1.0.0",
+  "abi_version": {
+    "major": 1,
+    "minor": 1,
+    "patch": 0
+  },
+  "source_file": "abi/KOJI_ABI_V1.h",
+  "source_sha256": "db90a7fd51b6b057e29fbe8c6453ab0a26f7f0925a992d1c80a1e6b07c680147",
+  "note": "Field offsets are informational. Trust is placed in generated binding assertions (Odin #assert, Go unsafe.Sizeof checks), not this manifest.",
+  "structs": [
+    {
+      "c_name": "koji_syscall_frame",
+      "typedef": "koji_syscall_frame_t",
+      "size": 80,
+      "fields": [
+        {
+          "name": "syscall_num",
+          "type": "koji_u64",
+          "offset": 0,
+          "size": 8
+        },
+        {
+          "name": "arg0",
+          "type": "koji_u64",
+          "offset": 8,
+          "size": 8
+        },
+        {
+          "name": "arg1",
+          "type": "koji_u64",
+          "offset": 16,
+          "size": 8
+        },
+        {
+          "name": "arg2",
+          "type": "koji_u64",
+          "offset": 24,
+          "size": 8
+        },
+        {
+          "name": "arg3",
+          "type": "koji_u64",
+          "offset": 32,
+          "size": 8
+        },
+        {
+          "name": "arg4",
+          "type": "koji_u64",
+          "offset": 40,
+          "size": 8
+        },
+        {
+          "name": "arg5",
+          "type": "koji_u64",
+          "offset": 48,
+          "size": 8
+        },
+        {
+          "name": "user_rip",
+          "type": "koji_u64",
+          "offset": 56,
+          "size": 8
+        },
+        {
+          "name": "user_rflags",
+          "type": "koji_u64",
+          "offset": 64,
+          "size": 8
+        },
+        {
+          "name": "user_rsp",
+          "type": "koji_u64",
+          "offset": 72,
+          "size": 8
+        }
+      ]
+    },
+    {
+      "c_name": "koji_ipc_header",
+      "typedef": "koji_ipc_header_t",
+      "size": 16,
+      "fields": [
+        {
+          "name": "data_size",
+          "type": "koji_u32",
+          "offset": 0,
+          "size": 4
+        },
+        {
+          "name": "handle_count",
+          "type": "koji_u32",
+          "offset": 4,
+          "size": 4
+        },
+        {
+          "name": "ordinal",
+          "type": "koji_u32",
+          "offset": 8,
+          "size": 4
+        },
+        {
+          "name": "flags",
+          "type": "koji_u32",
+          "offset": 12,
+          "size": 4
+        }
+      ]
+    }
+  ],
+  "constants": {
+    "AbiMagic": {
+      "c_name": "KOJI_ABI_MAGIC",
+      "value": 1263487561,
+      "type": "koji_u32"
+    },
+    "AbiVersionMajor": {
+      "c_name": "KOJI_ABI_VERSION_MAJOR",
+      "value": 1,
+      "type": "koji_u32"
+    },
+    "AbiVersionMinor": {
+      "c_name": "KOJI_ABI_VERSION_MINOR",
+      "value": 1,
+      "type": "koji_u32"
+    },
+    "AbiVersionPatch": {
+      "c_name": "KOJI_ABI_VERSION_PATCH",
+      "value": 0,
+      "type": "koji_u32"
+    },
+    "HandleInvalid": {
+      "c_name": "KOJI_HANDLE_INVALID",
+      "value": 4294967295,
+      "type": "koji_handle_t"
+    },
+    "HandleGenShift": {
+      "c_name": "KOJI_HANDLE_GEN_SHIFT",
+      "value": 24,
+      "type": "koji_u32"
+    },
+    "HandleGenMask": {
+      "c_name": "KOJI_HANDLE_GEN_MASK",
+      "value": 4278190080,
+      "type": "koji_u32"
+    },
+    "HandleIndexMask": {
+      "c_name": "KOJI_HANDLE_INDEX_MASK",
+      "value": 16777215,
+      "type": "koji_u32"
+    },
+    "HandleMaxIndex": {
+      "c_name": "KOJI_HANDLE_MAX_INDEX",
+      "value": 16777215,
+      "type": "koji_u32"
+    },
+    "HandleMaxGen": {
+      "c_name": "KOJI_HANDLE_MAX_GEN",
+      "value": 255,
+      "type": "koji_u8"
+    },
+    "ObjNone": {
+      "c_name": "KOJI_OBJ_NONE",
+      "value": 0,
+      "type": "koji_obj_type_t"
+    },
+    "ObjProcess": {
+      "c_name": "KOJI_OBJ_PROCESS",
+      "value": 1,
+      "type": "koji_obj_type_t"
+    },
+    "ObjThread": {
+      "c_name": "KOJI_OBJ_THREAD",
+      "value": 2,
+      "type": "koji_obj_type_t"
+    },
+    "ObjVmar": {
+      "c_name": "KOJI_OBJ_VMAR",
+      "value": 3,
+      "type": "koji_obj_type_t"
+    },
+    "ObjVmo": {
+      "c_name": "KOJI_OBJ_VMO",
+      "value": 4,
+      "type": "koji_obj_type_t"
+    },
+    "ObjChannel": {
+      "c_name": "KOJI_OBJ_CHANNEL",
+      "value": 5,
+      "type": "koji_obj_type_t"
+    },
+    "ObjPort": {
+      "c_name": "KOJI_OBJ_PORT",
+      "value": 6,
+      "type": "koji_obj_type_t"
+    },
+    "ObjIrq": {
+      "c_name": "KOJI_OBJ_IRQ",
+      "value": 7,
+      "type": "koji_obj_type_t"
+    },
+    "ObjTypeCount": {
+      "c_name": "KOJI_OBJ_TYPE_COUNT",
+      "value": 8,
+      "type": "koji_u32"
+    },
+    "RightNone": {
+      "c_name": "KOJI_RIGHT_NONE",
+      "value": 0,
+      "type": "koji_rights_t"
+    },
+    "RightRead": {
+      "c_name": "KOJI_RIGHT_READ",
+      "value": 1,
+      "type": "koji_rights_t"
+    },
+    "RightWrite": {
+      "c_name": "KOJI_RIGHT_WRITE",
+      "value": 2,
+      "type": "koji_rights_t"
+    },
+    "RightExecute": {
+      "c_name": "KOJI_RIGHT_EXECUTE",
+      "value": 4,
+      "type": "koji_rights_t"
+    },
+    "RightDuplicate": {
+      "c_name": "KOJI_RIGHT_DUPLICATE",
+      "value": 8,
+      "type": "koji_rights_t"
+    },
+    "RightTransfer": {
+      "c_name": "KOJI_RIGHT_TRANSFER",
+      "value": 16,
+      "type": "koji_rights_t"
+    },
+    "RightMap": {
+      "c_name": "KOJI_RIGHT_MAP",
+      "value": 32,
+      "type": "koji_rights_t"
+    },
+    "RightSignal": {
+      "c_name": "KOJI_RIGHT_SIGNAL",
+      "value": 64,
+      "type": "koji_rights_t"
+    },
+    "RightManage": {
+      "c_name": "KOJI_RIGHT_MANAGE",
+      "value": 128,
+      "type": "koji_rights_t"
+    },
+    "RightsAll": {
+      "c_name": "KOJI_RIGHTS_ALL",
+      "value": 255,
+      "type": "koji_rights_t"
+    },
+    "Ok": {
+      "c_name": "KOJI_OK",
+      "value": 0,
+      "type": "koji_status_t"
+    },
+    "ErrInvalidHandle": {
+      "c_name": "KOJI_ERR_INVALID_HANDLE",
+      "value": 1,
+      "type": "koji_status_t"
+    },
+    "ErrInvalidSyscall": {
+      "c_name": "KOJI_ERR_INVALID_SYSCALL",
+      "value": 2,
+      "type": "koji_status_t"
+    },
+    "ErrInvalidArgs": {
+      "c_name": "KOJI_ERR_INVALID_ARGS",
+      "value": 3,
+      "type": "koji_status_t"
+    },
+    "ErrAccessDenied": {
+      "c_name": "KOJI_ERR_ACCESS_DENIED",
+      "value": 4,
+      "type": "koji_status_t"
+    },
+    "ErrNoMemory": {
+      "c_name": "KOJI_ERR_NO_MEMORY",
+      "value": 5,
+      "type": "koji_status_t"
+    },
+    "ErrNotFound": {
+      "c_name": "KOJI_ERR_NOT_FOUND",
+      "value": 6,
+      "type": "koji_status_t"
+    },
+    "ErrAlreadyExists": {
+      "c_name": "KOJI_ERR_ALREADY_EXISTS",
+      "value": 7,
+      "type": "koji_status_t"
+    },
+    "ErrBufferTooSmall": {
+      "c_name": "KOJI_ERR_BUFFER_TOO_SMALL",
+      "value": 8,
+      "type": "koji_status_t"
+    },
+    "ErrChannelClosed": {
+      "c_name": "KOJI_ERR_CHANNEL_CLOSED",
+      "value": 9,
+      "type": "koji_status_t"
+    },
+    "ErrTimedOut": {
+      "c_name": "KOJI_ERR_TIMED_OUT",
+      "value": 10,
+      "type": "koji_status_t"
+    },
+    "ErrWouldBlock": {
+      "c_name": "KOJI_ERR_WOULD_BLOCK",
+      "value": 11,
+      "type": "koji_status_t"
+    },
+    "ErrInternal": {
+      "c_name": "KOJI_ERR_INTERNAL",
+      "value": 12,
+      "type": "koji_status_t"
+    },
+    "ErrCount": {
+      "c_name": "KOJI_ERR_COUNT",
+      "value": 13,
+      "type": "koji_u32"
+    },
+    "SysHandleClose": {
+      "c_name": "KOJI_SYS_HANDLE_CLOSE",
+      "value": 0,
+      "type": "koji_syscall_t"
+    },
+    "SysHandleDuplicate": {
+      "c_name": "KOJI_SYS_HANDLE_DUPLICATE",
+      "value": 1,
+      "type": "koji_syscall_t"
+    },
+    "SysHandleReplace": {
+      "c_name": "KOJI_SYS_HANDLE_REPLACE",
+      "value": 2,
+      "type": "koji_syscall_t"
+    },
+    "SysProcessCreate": {
+      "c_name": "KOJI_SYS_PROCESS_CREATE",
+      "value": 3,
+      "type": "koji_syscall_t"
+    },
+    "SysProcessExit": {
+      "c_name": "KOJI_SYS_PROCESS_EXIT",
+      "value": 4,
+      "type": "koji_syscall_t"
+    },
+    "SysProcessInfo": {
+      "c_name": "KOJI_SYS_PROCESS_INFO",
+      "value": 5,
+      "type": "koji_syscall_t"
+    },
+    "SysThreadCreate": {
+      "c_name": "KOJI_SYS_THREAD_CREATE",
+      "value": 6,
+      "type": "koji_syscall_t"
+    },
+    "SysThreadExit": {
+      "c_name": "KOJI_SYS_THREAD_EXIT",
+      "value": 7,
+      "type": "koji_syscall_t"
+    },
+    "SysThreadSuspend": {
+      "c_name": "KOJI_SYS_THREAD_SUSPEND",
+      "value": 8,
+      "type": "koji_syscall_t"
+    },
+    "SysThreadResume": {
+      "c_name": "KOJI_SYS_THREAD_RESUME",
+      "value": 9,
+      "type": "koji_syscall_t"
+    },
+    "SysChannelCreate": {
+      "c_name": "KOJI_SYS_CHANNEL_CREATE",
+      "value": 10,
+      "type": "koji_syscall_t"
+    },
+    "SysChannelSend": {
+      "c_name": "KOJI_SYS_CHANNEL_SEND",
+      "value": 11,
+      "type": "koji_syscall_t"
+    },
+    "SysChannelRecv": {
+      "c_name": "KOJI_SYS_CHANNEL_RECV",
+      "value": 12,
+      "type": "koji_syscall_t"
+    },
+    "SysChannelCall": {
+      "c_name": "KOJI_SYS_CHANNEL_CALL",
+      "value": 13,
+      "type": "koji_syscall_t"
+    },
+    "SysPortCreate": {
+      "c_name": "KOJI_SYS_PORT_CREATE",
+      "value": 14,
+      "type": "koji_syscall_t"
+    },
+    "SysPortSignal": {
+      "c_name": "KOJI_SYS_PORT_SIGNAL",
+      "value": 15,
+      "type": "koji_syscall_t"
+    },
+    "SysPortWait": {
+      "c_name": "KOJI_SYS_PORT_WAIT",
+      "value": 16,
+      "type": "koji_syscall_t"
+    },
+    "SysVmoCreate": {
+      "c_name": "KOJI_SYS_VMO_CREATE",
+      "value": 17,
+      "type": "koji_syscall_t"
+    },
+    "SysVmoRead": {
+      "c_name": "KOJI_SYS_VMO_READ",
+      "value": 18,
+      "type": "koji_syscall_t"
+    },
+    "SysVmoWrite": {
+      "c_name": "KOJI_SYS_VMO_WRITE",
+      "value": 19,
+      "type": "koji_syscall_t"
+    },
+    "SysVmarMap": {
+      "c_name": "KOJI_SYS_VMAR_MAP",
+      "value": 20,
+      "type": "koji_syscall_t"
+    },
+    "SysVmarUnmap": {
+      "c_name": "KOJI_SYS_VMAR_UNMAP",
+      "value": 21,
+      "type": "koji_syscall_t"
+    },
+    "SysVmarProtect": {
+      "c_name": "KOJI_SYS_VMAR_PROTECT",
+      "value": 22,
+      "type": "koji_syscall_t"
+    },
+    "SysIrqBind": {
+      "c_name": "KOJI_SYS_IRQ_BIND",
+      "value": 23,
+      "type": "koji_syscall_t"
+    },
+    "SysIrqAck": {
+      "c_name": "KOJI_SYS_IRQ_ACK",
+      "value": 24,
+      "type": "koji_syscall_t"
+    },
+    "SysAbiInfo": {
+      "c_name": "KOJI_SYS_ABI_INFO",
+      "value": 25,
+      "type": "koji_syscall_t"
+    },
+    "SyscallCount": {
+      "c_name": "KOJI_SYSCALL_COUNT",
+      "value": 26,
+      "type": "koji_u32"
+    },
+    "IpcMaxDataBytes": {
+      "c_name": "KOJI_IPC_MAX_DATA_BYTES",
+      "value": 4096,
+      "type": "koji_u32"
+    },
+    "IpcMaxHandles": {
+      "c_name": "KOJI_IPC_MAX_HANDLES",
+      "value": 8,
+      "type": "koji_u32"
+    },
+    "MaxThreadsPerProc": {
+      "c_name": "KOJI_MAX_THREADS_PER_PROC",
+      "value": 256,
+      "type": "koji_u32"
+    },
+    "PageSize": {
+      "c_name": "KOJI_PAGE_SIZE",
+      "value": 4096,
+      "type": "koji_u32"
+    },
+    "KernelStackSize": {
+      "c_name": "KOJI_KERNEL_STACK_SIZE",
+      "value": 16384,
+      "type": "koji_u32"
+    }
+  }
+}

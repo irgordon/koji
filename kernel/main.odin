@@ -2,11 +2,17 @@
 // KOJI Kernel — Entry Point
 //
 // kernel_main is called from boot.asm after stack and GDT setup.
-// Responsibilities:
-//   1. Initialize serial console (debug output)
-//   2. Initialize capability table
-//   3. Wire up SYSCALL MSRs
-//   4. Halt (no scheduler yet)
+//
+// Boot Sequence (must remain in this order)
+// -----------------------------------------
+//   1. Serial console        — debug output becomes available
+//   2. Capability table      — CNode slots zeroed, generations reset
+//   3. Syscall dispatch      — handler table wired (Phase 1/2/5)
+//   4. SYSCALL MSRs          — hardware entry point live
+//   5. Halt                  — no scheduler yet; loops until Phase 4
+//
+// Subsystems initialized here must be idempotent with respect to
+// a warm-restart (each init procedure re-zeros its state).
 // ============================================================
 package kernel
 
@@ -18,6 +24,7 @@ foreign import arch_syscall "arch/amd64/syscall_entry.o"
 
 @(export, link_name="kernel_main")
 kernel_main :: proc "c" (boot_info: rawptr) {
+	// 1. Serial console
 	serial_init()
 	serial_puts("KOJI kernel v")
 	serial_put_u32(abi.ABI_VERSION_MAJOR)
@@ -27,24 +34,24 @@ kernel_main :: proc "c" (boot_info: rawptr) {
 	serial_put_u32(abi.ABI_VERSION_PATCH)
 	serial_puts(" booting\n")
 
-	// ---- Capability table ----
+	// 2. Capability table (CNode)
 	serial_puts("[cap]  initializing capability table\n")
 	cap_table_init()
 	serial_puts("[cap]  capability table ready\n")
 
-	// ---- Syscall dispatch table ----
+	// 3. Syscall dispatch table
 	serial_puts("[sys]  initializing syscall dispatch table\n")
 	syscall_table_init()
 	serial_puts("[sys]  dispatch table ready\n")
 
-	// ---- SYSCALL wiring ----
+	// 4. SYSCALL MSR wiring
 	serial_puts("[sys]  configuring SYSCALL MSRs\n")
 	syscall_arch_init()
 	serial_puts("[sys]  SYSCALL entry wired\n")
 
 	serial_puts("[boot] kernel initialization complete — halting\n")
 
-	// No scheduler yet. Halt.
+	// 5. Halt — no scheduler, no user-mode entry yet.
 	halt_loop()
 }
 
