@@ -1,0 +1,89 @@
+name: KOJI Toolchain Drift
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: koji-toolchain-drift
+  cancel-in-progress: true
+
+jobs:
+  clean-rebuild:
+    name: Clean rebuild on fresh runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install system toolchain
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            lld \
+            llvm \
+            build-essential \
+            curl \
+            unzip \
+            ca-certificates
+
+      - name: Install Odin
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          import json, urllib.request
+
+          api = "https://api.github.com/repos/odin-lang/Odin/releases/latest"
+          with urllib.request.urlopen(api) as r:
+              rel = json.load(r)
+
+          asset = None
+          for a in rel["assets"]:
+              name = a["name"].lower()
+              if "linux" in name and ("amd64" in name or "x86_64" in name) and name.endswith(".zip"):
+                  asset = a["browser_download_url"]
+                  break
+
+          if not asset:
+              raise SystemExit("Could not find a Linux amd64 Odin release asset")
+
+          print(asset)
+          open("/tmp/odin-url.txt", "w").write(asset)
+          PY
+
+          curl -fsSL "$(cat /tmp/odin-url.txt)" -o /tmp/odin.zip
+          rm -rf /tmp/odin-extract
+          mkdir -p /tmp/odin-extract
+          unzip -q /tmp/odin.zip -d /tmp/odin-extract
+
+          ODIN_BIN="$(find /tmp/odin-extract -type f -name odin | head -n 1)"
+          ODIN_ROOT="$(dirname "$ODIN_BIN")"
+          sudo cp -R "$ODIN_ROOT"/. /usr/local/bin/
+          sudo chmod +x /usr/local/bin/odin
+
+      - name: Verify drift gate
+        shell: bash
+        run: |
+          set -euxo pipefail
+          odin version
+          python3 scripts/build_kernel.py --check
+          python3 scripts/validate.py
+          odin run tests/cnode_test.odin -file
