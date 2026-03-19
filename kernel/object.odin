@@ -3,7 +3,8 @@
 //
 // All kernel objects must embed Obj_Header as their FIRST field.
 // This guarantees that a ^Obj_Header and a ^ConcreteObject share
-// the same address, enabling safe pointer-level downcasts.
+// the same address for controlled casts; type and lifetime validity
+// still require separate checks.
 //
 // Lifetime Model:
 //   obj_init sets ref_count = 0.  The object is Live but not yet published.
@@ -59,10 +60,13 @@ Obj_Header :: struct {
 // ---- obj_ref ----
 //
 // Increments the reference count.
-// Returns true on success, false if hdr is nil or ref_count is at max.
-// Caller must guarantee the object is currently Live.
+// Returns true on success.
+// Returns false unless hdr is non-nil, state == Live, and ref_count < max(u32).
 obj_ref :: #force_inline proc "c" (hdr: ^Obj_Header) -> bool {
 	if hdr == nil {
+		return false
+	}
+	if hdr.state != .Live {
 		return false
 	}
 	if hdr.ref_count == max(u32) {
@@ -80,12 +84,14 @@ obj_ref :: #force_inline proc "c" (hdr: ^Obj_Header) -> bool {
 //   2. destroy_fn is called (if non-nil)
 //   3. state → Dead
 // Returns true if the object was destroyed, false otherwise.
-// Returns false if hdr is nil or ref_count is already zero.
+// Returns false unless hdr is non-nil, state == Live, and ref_count > 0.
 obj_deref :: proc "c" (hdr: ^Obj_Header) -> bool {
 	if hdr == nil {
 		return false
 	}
-	// Defensive guard: double-free or accounting error.
+	if hdr.state != .Live {
+		return false
+	}
 	if hdr.ref_count == 0 {
 		return false
 	}

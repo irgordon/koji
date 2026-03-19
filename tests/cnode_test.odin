@@ -35,6 +35,8 @@
 //   T17 — malformed ingress fails before handler dispatch
 //   T18 — SYS_ABI_INFO rejects non-zero unused args
 //   T19 — nil ingress frame returns ERR_INVALID_ARGS
+//   T20 — obj_ref rejects nil/non-live/overflow
+//   T21 — obj_deref rejects nil/non-live/zero-ref
 // ============================================================
 package cnode_test
 
@@ -92,12 +94,15 @@ obj_init :: proc(hdr: ^Obj_Header, t: Obj_Type, destroy: Obj_Destroy_Fn = nil) {
 
 obj_ref :: proc(hdr: ^Obj_Header) -> bool {
 	if hdr == nil { return false }
+	if hdr.state != .Live { return false }
 	if hdr.ref_count == 0xFFFF_FFFF { return false }
 	hdr.ref_count += 1
 	return true
 }
 
 obj_deref :: proc(hdr: ^Obj_Header) -> bool {
+	if hdr == nil { return false }
+	if hdr.state != .Live { return false }
 	if hdr.ref_count == 0 { return false }
 	hdr.ref_count -= 1
 	if hdr.ref_count != 0 { return false }
@@ -582,6 +587,37 @@ test_t19_nil_ingress_frame_rejected :: proc() {
 	check("no handler dispatched", dispatch_counter == 0)
 }
 
+test_t20_obj_ref_rejection_paths :: proc() {
+	fmt.println("[T20] obj_ref rejects nil, non-live, and overflow")
+	check("obj_ref(nil) returns false", !obj_ref(nil))
+
+	obj: Obj_Header
+	obj_init(&obj, OBJ_NONE)
+	obj.state = .Dying
+	check("obj_ref on Dying object returns false", !obj_ref(&obj))
+	obj.state = .Dead
+	check("obj_ref on Dead object returns false", !obj_ref(&obj))
+
+	obj.state = .Live
+	obj.ref_count = 0xFFFF_FFFF
+	check("obj_ref at max refcount returns false", !obj_ref(&obj))
+}
+
+test_t21_obj_deref_rejection_paths :: proc() {
+	fmt.println("[T21] obj_deref rejects nil, non-live, and zero-ref")
+	check("obj_deref(nil) returns false", !obj_deref(nil))
+
+	obj: Obj_Header
+	obj_init(&obj, OBJ_NONE)
+	check("obj_deref at zero refcount returns false", !obj_deref(&obj))
+
+	obj.ref_count = 1
+	obj.state = .Dying
+	check("obj_deref on Dying object returns false", !obj_deref(&obj))
+	obj.state = .Dead
+	check("obj_deref on Dead object returns false", !obj_deref(&obj))
+}
+
 // ---- Main ----
 
 main :: proc() {
@@ -607,6 +643,8 @@ main :: proc() {
 	test_t17_malformed_ingress_before_dispatch()
 	test_t18_sys_abi_info_unused_args()
 	test_t19_nil_ingress_frame_rejected()
+	test_t20_obj_ref_rejection_paths()
+	test_t21_obj_deref_rejection_paths()
 
 	fmt.println()
 	fmt.printf("=== Results: %d passed, %d failed ===\n", g_pass, g_fail)

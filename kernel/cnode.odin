@@ -121,7 +121,7 @@ cap_alloc :: proc "c" (obj: ^Obj_Header, rights: abi.Rights) -> abi.Handle {
 // Validates the handle and returns a pointer to the live entry.
 // Execution model assumption: capability table mutation/lookup is serialized
 // by the v1 kernel's single-threaded, non-preemptive capability path, so
-// returning ^Cap_Entry is stable for the duration of the immediate caller.
+// returned ^Cap_Entry is for immediate serialized use and must not be retained.
 // Returns nil for every invalid state:
 //   • h == HANDLE_INVALID                  — explicit sentinel
 //   • index >= CAP_TABLE_SIZE              — out-of-range index
