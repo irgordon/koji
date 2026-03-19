@@ -70,6 +70,23 @@ Cap_Table :: struct {
 // Global table — single address space, v1.
 g_cap_table: Cap_Table
 
+// ---- Local freestanding-safe handle helpers ----
+//
+// ABI handle encoding:
+//   bits [31:24] generation (u8)
+//   bits [23:0] slot index (u32)
+handle_make :: #force_inline proc (index: u32, gen: u8) -> abi.Handle {
+	return abi.Handle((u32(gen) << 24) | (index & 0x00FF_FFFF))
+}
+
+handle_index :: #force_inline proc (h: abi.Handle) -> u32 {
+	return u32(h) & 0x00FF_FFFF
+}
+
+handle_gen :: #force_inline proc (h: abi.Handle) -> u8 {
+	return u8((u32(h) >> 24) & 0xFF)
+}
+
 // ---- cap_table_init ----
 //
 // Zeros every entry and resets all generation counters.
@@ -110,7 +127,7 @@ cap_alloc :: proc "c" (obj: ^Obj_Header, rights: abi.Rights) -> abi.Handle {
 				generation = gen,
 				_pad       = {0, 0, 0},
 			}
-			return abi.handle_make(i, gen)
+			return handle_make(u32(i), gen)
 		}
 	}
 	return abi.HANDLE_INVALID
@@ -133,8 +150,8 @@ cap_lookup :: proc "c" (h: abi.Handle) -> ^Cap_Entry {
 	if h == abi.HANDLE_INVALID {
 		return nil
 	}
-	idx := abi.handle_index(h)
-	gen := abi.handle_gen(h)
+	idx := handle_index(h)
+	gen := handle_gen(h)
 	if idx >= CAP_TABLE_SIZE {
 		return nil
 	}
@@ -244,7 +261,7 @@ cap_replace :: proc "c" (h: abi.Handle, new_rights: abi.Rights) -> (abi.Handle, 
 		return abi.HANDLE_INVALID, abi.ERR_INVALID_HANDLE
 	}
 
-	idx := abi.handle_index(h)
+	idx := handle_index(h)
 
 	// Narrow rights (anti-amplification).
 	effective := entry.rights & new_rights
@@ -254,7 +271,7 @@ cap_replace :: proc "c" (h: abi.Handle, new_rights: abi.Rights) -> (abi.Handle, 
 	entry.rights = effective
 
 	// Return a new handle at the same slot with the updated generation.
-	return abi.handle_make(idx, entry.generation), abi.OK
+	return handle_make(idx, entry.generation), abi.OK
 }
 
 // ---- cap_get_type ----
