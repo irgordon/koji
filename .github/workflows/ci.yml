@@ -74,6 +74,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
+          # Pinned to a known-good upstream Odin commit for deterministic CI behavior.
           ODIN_COMMIT_SHA="c937d38db2b31b885256b9aac0d606032f6c5343"
           ODIN_REPO_URL="https://github.com/odin-lang/Odin.git"
           rm -rf /tmp/odin-src
