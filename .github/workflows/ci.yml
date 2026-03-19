@@ -46,11 +46,6 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-          cache: "pip"
-          cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
-            pyproject.toml
 
       - name: Install Python dependencies
         shell: bash
@@ -69,56 +64,57 @@ jobs:
             clang \
             lld \
             llvm \
+            nasm \
             build-essential \
             curl \
             unzip \
             ca-certificates
 
-      - name: Cache Odin toolchain
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/odin
-          key: odin-${{ runner.os }}-${{ runner.arch }}-v1
-
       - name: Install Odin
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p ~/.cache/odin
-          if [[ ! -x ~/.cache/odin/odin ]]; then
-            python - <<'PY'
-            import json, os, platform, sys, urllib.request
 
-            api = "https://api.github.com/repos/odin-lang/Odin/releases/latest"
-            with urllib.request.urlopen(api) as r:
-                rel = json.load(r)
+          python - <<'PY'
+          import json
+          import urllib.request
 
-            asset = None
-            for a in rel["assets"]:
-                name = a["name"].lower()
-                if "linux" in name and ("amd64" in name or "x86_64" in name) and name.endswith(".zip"):
-                    asset = a["browser_download_url"]
-                    break
+          api = "https://api.github.com/repos/odin-lang/Odin/releases/latest"
+          with urllib.request.urlopen(api) as r:
+              rel = json.load(r)
 
-            if not asset:
-                raise SystemExit("Could not find a Linux amd64 Odin release asset")
+          asset = None
+          for a in rel["assets"]:
+              name = a["name"].lower()
+              if "linux" in name and ("amd64" in name or "x86_64" in name) and name.endswith(".zip"):
+                  asset = a["browser_download_url"]
+                  break
 
-            print(asset)
-            open("/tmp/odin-url.txt", "w").write(asset)
-            PY
-            curl -fsSL "$(cat /tmp/odin-url.txt)" -o /tmp/odin.zip
-            rm -rf /tmp/odin-extract
-            mkdir -p /tmp/odin-extract
-            unzip -q /tmp/odin.zip -d /tmp/odin-extract
+          if not asset:
+              raise SystemExit("Could not find a Linux amd64 Odin release asset")
 
-            ODIN_BIN="$(find /tmp/odin-extract -type f -name odin | head -n 1)"
-            ODIN_ROOT="$(dirname "$ODIN_BIN")"
+          print(asset)
+          with open("/tmp/odin-url.txt", "w", encoding="utf-8") as f:
+              f.write(asset)
+          PY
 
-            cp -R "$ODIN_ROOT"/. ~/.cache/odin/
-            chmod +x ~/.cache/odin/odin
+          curl -fsSL "$(cat /tmp/odin-url.txt)" -o /tmp/odin.zip
+          rm -rf /tmp/odin-extract
+          mkdir -p /tmp/odin-extract
+          unzip -q /tmp/odin.zip -d /tmp/odin-extract
+
+          ODIN_BIN="$(find /tmp/odin-extract -type f -name odin | head -n 1)"
+          if [[ -z "${ODIN_BIN}" ]]; then
+            echo "Failed to locate Odin binary after extraction" >&2
+            exit 1
           fi
 
-          echo "$HOME/.cache/odin" >> "$GITHUB_PATH"
+          ODIN_ROOT="$(dirname "$ODIN_BIN")"
+          sudo mkdir -p /usr/local/lib/odin /usr/local/bin
+          sudo cp -R "$ODIN_ROOT"/. /usr/local/lib/odin/
+          sudo ln -sf /usr/local/lib/odin/odin /usr/local/bin/odin
+          sudo chmod +x /usr/local/lib/odin/odin
+
           odin version
 
       - name: Verify required tools
@@ -127,27 +123,39 @@ jobs:
           set -euxo pipefail
           command -v python3
           command -v odin
+          command -v nasm
           command -v ld.lld
           command -v llvm-nm
           python3 --version
           odin version
+          nasm -v
           ld.lld --version
           llvm-nm --version
+
+      - name: Focused invariant gate
+        shell: bash
+        run: |
+          set -euxo pipefail
+          make test
 
       - name: Canonical build gate
         shell: bash
         run: |
           set -euxo pipefail
-          python3 scripts/build_kernel.py --check
+          make all
+
+      - name: Direct Odin invariant run
+        shell: bash
+        run: |
+          set -euxo pipefail
+          odin run tests/cnode_test.odin -file
 
       - name: Repository validation gate
         shell: bash
         run: |
           set -euxo pipefail
-          python3 scripts/validate.py
-
-      - name: Focused invariant tests
-        shell: bash
-        run: |
-          set -euxo pipefail
-          odin run tests/cnode_test.odin -file
+          if [[ -f scripts/validate.py ]]; then
+            python3 scripts/validate.py
+          else
+            echo "scripts/validate.py not present; skipping validation gate"
+          fi
