@@ -69,6 +69,7 @@ jobs:
             clang \
             lld \
             llvm \
+            nasm \
             build-essential \
             curl \
             unzip \
@@ -78,7 +79,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.cache/odin
-          key: odin-${{ runner.os }}-${{ runner.arch }}-v1
+          key: odin-${{ runner.os }}-${{ runner.arch }}-dev-2026-03-v1
 
       - name: Install Odin
         shell: bash
@@ -86,27 +87,24 @@ jobs:
           set -euxo pipefail
           mkdir -p ~/.cache/odin
           if [[ ! -x ~/.cache/odin/odin ]]; then
-            python - <<'PY'
-            import json, os, platform, sys, urllib.request
+            ODIN_VERSION="dev-2026-03"
+            ODIN_BASE_URL="https://github.com/odin-lang/Odin/releases/download/${ODIN_VERSION}"
+            ODIN_ASSET=""
+            for candidate in \
+              "odin-linux-amd64.zip" \
+              "odin-linux-x86_64.zip"
+            do
+              if curl -fLSs "${ODIN_BASE_URL}/${candidate}" -o /tmp/odin.zip; then
+                ODIN_ASSET="${candidate}"
+                break
+              fi
+            done
 
-            api = "https://api.github.com/repos/odin-lang/Odin/releases/latest"
-            with urllib.request.urlopen(api) as r:
-                rel = json.load(r)
+            if [[ -z "${ODIN_ASSET}" ]]; then
+              echo "Failed to download Odin release asset for ${ODIN_VERSION}" >&2
+              exit 1
+            fi
 
-            asset = None
-            for a in rel["assets"]:
-                name = a["name"].lower()
-                if "linux" in name and ("amd64" in name or "x86_64" in name) and name.endswith(".zip"):
-                    asset = a["browser_download_url"]
-                    break
-
-            if not asset:
-                raise SystemExit("Could not find a Linux amd64 Odin release asset")
-
-            print(asset)
-            open("/tmp/odin-url.txt", "w").write(asset)
-            PY
-            curl -fsSL "$(cat /tmp/odin-url.txt)" -o /tmp/odin.zip
             rm -rf /tmp/odin-extract
             mkdir -p /tmp/odin-extract
             unzip -q /tmp/odin.zip -d /tmp/odin-extract
@@ -138,7 +136,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          python3 scripts/build_kernel.py --check
+          make all
 
       - name: Repository validation gate
         shell: bash
@@ -146,7 +144,13 @@ jobs:
           set -euxo pipefail
           python3 scripts/validate.py
 
-      - name: Focused invariant tests
+      - name: Focused invariant gate
+        shell: bash
+        run: |
+          set -euxo pipefail
+          make test
+
+      - name: Direct Odin invariant run
         shell: bash
         run: |
           set -euxo pipefail
