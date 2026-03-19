@@ -4,7 +4,7 @@ KOJI is a layered microkernel operating system writtin in Odin and Go.
 
 ## Governance
 
-The [KOJI Engineering Principles](KOJI_ENGINEERING_PRINCIPLES.md) are binding on all contributions to this repository.
+The [KOJI Engineering Principles](docs/ENGINEERING_PRINCIPLES.md) are binding on all contributions to this repository.
 
 ## Architecture
 
