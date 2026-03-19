@@ -6,21 +6,23 @@
 // the same address, enabling safe pointer-level downcasts.
 //
 // Lifetime Model:
-//   ref_count starts at 1 on object creation (set by the object's
-//   own init function; cap_alloc does NOT set it).
-//   cap_alloc increments ref_count before linking a new slot.
-//   cap_close calls obj_deref; when ref_count reaches zero the
-//   object transitions Dying → Dead and destroy_fn is invoked.
+//   obj_init sets ref_count = 0.  The object is Live but not yet published.
+//   Every successful cap_alloc publishes one capability-owned reference.
+//   Kernel code may also take temporary references with obj_ref and must
+//   release them with obj_deref.
+//   cap_close drops one published reference with obj_deref.  Final
+//   destruction occurs only when the total ref_count reaches zero.
 //
 // State Transitions (one-way only):
 //   Live → Dying → Dead
 //   No backward transitions are permitted.
 //
 // Invariants:
-//   - Only Live objects may be referenced by capabilities.
+//   - Only Live objects may be published through capabilities.
+//   - ref_count is the total of published capability refs + temporary refs.
 //   - ref_count must never underflow (obj_deref guards against this).
-//   - destroy_fn must not close capabilities that point back to the
-//     same object (would re-enter obj_deref with ref_count already 0).
+//   - destroy_fn executes while state == Dying and must not resurrect,
+//     re-own, or re-publish the same object.
 //   - All object pools are statically allocated (no heap in v1 kernel).
 // ============================================================
 package kernel
@@ -32,7 +34,7 @@ import abi "../abi/generated/odin"
 // Transitions are strictly one-way: Live → Dying → Dead.
 Obj_State :: enum u32 {
 	Live  = 0, // object is alive; capabilities may reference it
-	Dying = 1, // last capability closed; destroy_fn executing
+	Dying = 1, // ref_count reached zero; destroy_fn executing
 	Dead  = 2, // object fully destroyed; memory may be reclaimed
 }
 
@@ -50,16 +52,24 @@ Obj_Destroy_Fn :: #type proc "c" (hdr: ^Obj_Header)
 Obj_Header :: struct {
 	obj_type:   abi.Obj_Type,   // stable type discriminant (matches ABI)
 	state:      Obj_State,      // current lifetime state
-	ref_count:  u32,            // number of live capabilities pointing here
+	ref_count:  u32,            // published capability refs + temporary kernel refs
 	destroy_fn: Obj_Destroy_Fn, // called when ref_count → 0; nil is allowed
 }
 
 // ---- obj_ref ----
 //
 // Increments the reference count.
+// Returns true on success, false if hdr is nil or ref_count is at max.
 // Caller must guarantee the object is currently Live.
-obj_ref :: #force_inline proc "c" (hdr: ^Obj_Header) {
+obj_ref :: #force_inline proc "c" (hdr: ^Obj_Header) -> bool {
+	if hdr == nil {
+		return false
+	}
+	if hdr.ref_count == u32(0xFFFF_FFFF) {
+		return false
+	}
 	hdr.ref_count += 1
+	return true
 }
 
 // ---- obj_deref ----
@@ -70,8 +80,11 @@ obj_ref :: #force_inline proc "c" (hdr: ^Obj_Header) {
 //   2. destroy_fn is called (if non-nil)
 //   3. state → Dead
 // Returns true if the object was destroyed, false otherwise.
-// Returns false (no-op) if ref_count is already zero — defensive guard.
+// Returns false if hdr is nil or ref_count is already zero.
 obj_deref :: proc "c" (hdr: ^Obj_Header) -> bool {
+	if hdr == nil {
+		return false
+	}
 	// Defensive guard: double-free or accounting error.
 	if hdr.ref_count == 0 {
 		return false
@@ -91,24 +104,30 @@ obj_deref :: proc "c" (hdr: ^Obj_Header) -> bool {
 
 // ---- obj_is_live ----
 //
-// Returns true iff the object is in the Live state.
+// Returns true iff hdr is non-nil and the object is in the Live state.
 // Used by cap_alloc and cap_lookup to reject dying/dead objects.
 obj_is_live :: #force_inline proc "c" (hdr: ^Obj_Header) -> bool {
+	if hdr == nil {
+		return false
+	}
 	return hdr.state == .Live
 }
 
 // ---- obj_init ----
 //
-// Initializes an object header in the Live state with ref_count = 1.
-// Every object's own init function must call this before calling cap_alloc.
+// Initializes an object header in the Live state with ref_count = 0.
+// Newly initialized objects are not yet published until cap_alloc succeeds.
 obj_init :: #force_inline proc "c" (hdr: ^Obj_Header, t: abi.Obj_Type, destroy: Obj_Destroy_Fn) {
+	if hdr == nil {
+		return
+	}
 	hdr.obj_type   = t
 	hdr.state      = .Live
-	hdr.ref_count  = 1
+	hdr.ref_count  = 0
 	hdr.destroy_fn = destroy
 }
 
 // ---- Compile-time invariant ----
-// Obj_Header must be at least 20 bytes (3×u32 + pointer) and pointer-aligned.
-#assert(size_of(Obj_Header) >= 20)
-#assert(align_of(Obj_Header) >= 4)
+// amd64 freestanding build: 3×u32 + pointer = 24 bytes, pointer-aligned.
+#assert(size_of(Obj_Header) == 24)
+#assert(align_of(Obj_Header) == 8)

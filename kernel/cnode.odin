@@ -25,9 +25,9 @@
 //   bumped generation, so any handle carrying the old generation value
 //   fails the generation check.
 //
-//   256-cycle rollover is accepted for v1.  Slots reused exactly 256
-//   times with the same index would create a spurious match; this is
-//   considered negligible for early bring-up.
+//   u8 rollover is a bounded-risk tradeoff in v1.  After 256 reuse cycles
+//   at the same slot, an old stale handle could collide with current
+//   generation; this is accepted for early bring-up.
 //
 // Anti-Amplification Rule
 // -----------------------
@@ -35,11 +35,13 @@
 //   A caller can never gain rights not held by the source capability.
 //
 // Reference Counting Integration
-// --------------------------------
-//   Callers of cap_alloc must have already incremented obj.ref_count
-//   (or set it to 1 for a brand-new object via obj_init).
-//   cap_close calls obj_deref which handles destruction.
-//   cap_duplicate calls obj_ref before cap_alloc; rolls back on failure.
+// ------------------------------
+//   obj_init starts with ref_count = 0 (unpublished object).
+//   Each successful cap_alloc publishes one capability-owned reference.
+//   Internal kernel code may take temporary refs with obj_ref and must
+//   release them with obj_deref.
+//   cap_close clears the slot first, then calls obj_deref.
+//   Final destruction happens when total ref_count reaches zero.
 //
 // Tests: see tests/cnode_test.odin
 // ============================================================
@@ -86,11 +88,12 @@ cap_table_init :: proc "c" () {
 // ---- cap_alloc ----
 //
 // Scans for a free slot, fills it, and returns the encoded handle.
-// Returns HANDLE_INVALID if the table is full or obj is not Live.
-//
-// Pre-condition: caller has already incremented obj.ref_count
-// (or called obj_init which sets it to 1 for a new object).
+// Returns HANDLE_INVALID if the table is full, obj is nil, or obj is not Live.
+// On success, publishes one capability-owned reference via obj_ref.
 cap_alloc :: proc "c" (obj: ^Obj_Header, rights: abi.Rights) -> abi.Handle {
+	if obj == nil {
+		return abi.HANDLE_INVALID
+	}
 	// Refuse to attach a capability to a non-live object.
 	if !obj_is_live(obj) {
 		return abi.HANDLE_INVALID
@@ -98,6 +101,9 @@ cap_alloc :: proc "c" (obj: ^Obj_Header, rights: abi.Rights) -> abi.Handle {
 	for i in 0 ..< CAP_TABLE_SIZE {
 		if g_cap_table.entries[i].object == nil {
 			gen := g_cap_table.entries[i].generation // inherits post-close generation
+			if !obj_ref(obj) {
+				return abi.HANDLE_INVALID
+			}
 			g_cap_table.entries[i] = Cap_Entry {
 				object     = obj,
 				rights     = rights,
@@ -113,6 +119,9 @@ cap_alloc :: proc "c" (obj: ^Obj_Header, rights: abi.Rights) -> abi.Handle {
 // ---- cap_lookup ----
 //
 // Validates the handle and returns a pointer to the live entry.
+// Execution model assumption: capability table mutation/lookup is serialized
+// by the v1 kernel's single-threaded, non-preemptive capability path, so
+// returning ^Cap_Entry is stable for the duration of the immediate caller.
 // Returns nil for every invalid state:
 //   • h == HANDLE_INVALID                  — explicit sentinel
 //   • index >= CAP_TABLE_SIZE              — out-of-range index
@@ -200,8 +209,10 @@ cap_duplicate :: proc "c" (h: abi.Handle, requested_rights: abi.Rights) -> (abi.
 	// Anti-amplification: new rights are strictly a subset of source rights.
 	effective := src.rights & requested_rights
 
-	// Increment ref count before allocating the slot.
-	obj_ref(src.object)
+	// Take a temporary stabilizing ref before publication.
+	if !obj_ref(src.object) {
+		return abi.HANDLE_INVALID, abi.ERR_NO_MEMORY
+	}
 
 	new_handle := cap_alloc(src.object, effective)
 	if new_handle == abi.HANDLE_INVALID {
@@ -209,18 +220,21 @@ cap_duplicate :: proc "c" (h: abi.Handle, requested_rights: abi.Rights) -> (abi.
 		obj_deref(src.object)
 		return abi.HANDLE_INVALID, abi.ERR_NO_MEMORY
 	}
+	// Release temporary ref; published capability ref remains.
+	obj_deref(src.object)
 	return new_handle, abi.OK
 }
 
 // ---- cap_replace ----
 //
-// Transforms an existing capability in place: the slot keeps the same
+// Self-attenuation of an existing valid capability: the slot keeps the same
 // index but receives a new (bumped) generation and the rights are
 // narrowed to (src.rights & new_rights).  The original handle is
 // consumed; the returned handle encodes the new generation.
 //
 // ref_count is unchanged — the capability moves in place, not copied.
 // This is equivalent to a rights-narrowing handle refresh.
+// No additional management right is required beyond possession of h.
 //
 // Returns (new_handle, OK) on success.
 // Returns (HANDLE_INVALID, ERR_INVALID_HANDLE) if h is invalid.
