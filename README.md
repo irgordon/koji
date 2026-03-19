@@ -1,6 +1,6 @@
 # KOJI
 
-KOJI is a layered microkernel operating system.
+KOJI is a layered microkernel operating system writtin in Odin and Go.
 
 ## Governance
 
