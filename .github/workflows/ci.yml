@@ -74,12 +74,13 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          # Pinned to a known-good upstream Odin commit for deterministic CI behavior.
+          # Pinned to a known-good upstream Odin commit for deterministic CI behavior (updated 2026-03-19).
           ODIN_COMMIT_SHA="c937d38db2b31b885256b9aac0d606032f6c5343"
           ODIN_REPO_URL="https://github.com/odin-lang/Odin.git"
           rm -rf /tmp/odin-src
-          git clone "${ODIN_REPO_URL}" /tmp/odin-src
+          git clone --filter=blob:none --no-checkout "${ODIN_REPO_URL}" /tmp/odin-src
           cd /tmp/odin-src
+          git fetch --depth=1 origin "${ODIN_COMMIT_SHA}"
           git checkout --detach "${ODIN_COMMIT_SHA}"
           make release-native
 
