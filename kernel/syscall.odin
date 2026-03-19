@@ -1,15 +1,30 @@
 // ============================================================
-// KOJI Kernel — Syscall Dispatch
+// KOJI Kernel — Syscall Dispatch (Phase 2: Ingress Normalization)
 //
-// koji_syscall_dispatch is called from syscall_entry.asm with
-// a pointer to the register-save Syscall_Frame.
+// koji_syscall_dispatch is the single, deterministic syscall ingress.
+// It is called from syscall_entry.asm with a pointer to the
+// register-save Syscall_Frame.
 //
-// This is pure mechanism:
-//   - validate syscall number
-//   - dispatch to handler
-//   - return status in rax
+// Ingress Steps (must happen in this order, no exceptions)
+// --------------------------------------------------------
+//   1. frame_validate_ingress — reject malformed frame structure
+//      (upper 32 bits of syscall_num must be zero)
+//   2. Bounds check syscall_num against SYSCALL_COUNT
+//   3. Nil-handler check (number in range but not yet implemented)
+//   4. Dispatch to registered handler
 //
-// No policy. No implicit behavior. No retry logic.
+// No state is mutated before step 4.
+// Every exit path returns a defined ABI status code.
+//
+// Error Code Map
+// --------------
+//   ERR_INVALID_ARGS    — malformed frame (reserved bits set)
+//   ERR_INVALID_SYSCALL — syscall number out of range or unimplemented
+//
+// Handlers live in their respective subsystem files:
+//   cap_syscalls.odin   — SYS_HANDLE_CLOSE/DUPLICATE/REPLACE
+//   syscall.odin        — SYS_ABI_INFO (and future misc syscalls)
+//   (others TBD per phase schedule)
 // ============================================================
 package kernel
 
@@ -20,71 +35,74 @@ import abi "../abi/generated/odin"
 Syscall_Handler :: #type proc "c" (frame: ^abi.Syscall_Frame) -> abi.Status
 
 // ---- Dispatch Table ----
-// Indexed by syscall number. nil = not implemented yet.
+// Indexed by syscall number.  nil = not yet implemented.
 
 syscall_table: [abi.SYSCALL_COUNT]Syscall_Handler
 
 syscall_table_init :: proc "c" () {
-	// Wire up implemented syscalls.
-	// Unimplemented slots remain nil → ERR_INVALID_SYSCALL.
+	// ---- Phase 1/5: Handle-family syscalls ----
 	syscall_table[u32(abi.SYS_HANDLE_CLOSE)]     = sys_handle_close
 	syscall_table[u32(abi.SYS_HANDLE_DUPLICATE)]  = sys_handle_duplicate
+	syscall_table[u32(abi.SYS_HANDLE_REPLACE)]    = sys_handle_replace
+
+	// ---- Phase 5: Miscellaneous / introspection ----
 	syscall_table[u32(abi.SYS_ABI_INFO)]          = sys_abi_info
-	// All others are nil — stubs added as subsystems come online.
+
+	// All other slots remain nil.
+	// Numbers 3-9   (Process/Thread lifecycle) — blocked by CCR-001, CCR-003
+	// Numbers 10-13 (IPC channels)             — blocked by CCR-002
+	// Numbers 14-16 (Ports)                    — blocked by CCR-002
+	// Numbers 17-22 (VMO/VMAR)                 — blocked by CCR-005
+	// Numbers 23-24 (IRQ)                      — blocked by CCR-003
+	// nil handler → ERR_INVALID_SYSCALL (not yet implemented)
 }
 
 // ---- Entry Point (called from NASM) ----
+//
+// Phase 2: single ingress path with full frame validation before dispatch.
+// No handler may be called with an invalid or malformed frame.
 
 @(export, link_name="koji_syscall_dispatch")
 koji_syscall_dispatch :: proc "c" (frame: ^abi.Syscall_Frame) -> abi.Status {
-	num := u32(frame.syscall_num)
+	// Step 1: structural frame validation (reserved bits, etc.)
+	// Must happen before inspecting syscall_num.
+	if frame_validate_ingress(frame) != abi.OK {
+		return abi.ERR_INVALID_ARGS
+	}
 
+	// Step 2: syscall number bounds check.
+	num := u32(frame.syscall_num)
 	if num >= abi.SYSCALL_COUNT {
 		return abi.ERR_INVALID_SYSCALL
 	}
 
+	// Step 3: nil handler → not yet implemented.
 	handler := syscall_table[num]
 	if handler == nil {
 		return abi.ERR_INVALID_SYSCALL
 	}
 
+	// Step 4: dispatch.  No state was mutated above this line.
 	return handler(frame)
 }
 
 // ============================================================
-// Implemented Syscall Handlers
+// Miscellaneous Syscall Handlers
+// (Capability handlers are in cap_syscalls.odin)
 // ============================================================
 
-// ---- SYS_HANDLE_CLOSE ----
-// arg0 (rdi) = handle to close
-
-sys_handle_close :: proc "c" (frame: ^abi.Syscall_Frame) -> abi.Status {
-	h := abi.Handle(u32(frame.arg0))
-	return cap_close(h)
-}
-
-// ---- SYS_HANDLE_DUPLICATE ----
-// arg0 (rdi) = source handle
-// arg1 (rsi) = new rights mask
-// Returns: new handle in rdx (frame.arg2 on return path)
-
-sys_handle_duplicate :: proc "c" (frame: ^abi.Syscall_Frame) -> abi.Status {
-	src_handle  := abi.Handle(u32(frame.arg0))
-	new_rights  := abi.Rights(u32(frame.arg1))
-
-	new_handle, status := cap_duplicate(src_handle, new_rights)
-	if status == abi.OK {
-		// Secondary return value goes in arg2 slot (mapped to rdx on exit)
-		frame.arg2 = u64(u32(new_handle))
-	}
-	return status
-}
-
 // ---- SYS_ABI_INFO ----
-// No arguments. Returns ABI version info.
-// arg2 (rdx) = packed version: (major << 16) | (minor << 8) | patch
-
+//
+// No input arguments; all args must be zero.
+//
+// On success:
+//   rax (return) = OK
+//   rdx (frame.arg2) = packed version: (major << 16) | (minor << 8) | patch
 sys_abi_info :: proc "c" (frame: ^abi.Syscall_Frame) -> abi.Status {
+	// All six args must be zero for this no-input syscall.
+	if frame_validate_unused_args(frame, 0) != abi.OK {
+		return abi.ERR_INVALID_ARGS
+	}
 	version := u64(abi.ABI_VERSION_MAJOR) << 16 |
 	           u64(abi.ABI_VERSION_MINOR) << 8  |
 	           u64(abi.ABI_VERSION_PATCH)
