@@ -65,7 +65,7 @@ obj_ref :: #force_inline proc "c" (hdr: ^Obj_Header) -> bool {
 	if hdr == nil {
 		return false
 	}
-	if hdr.ref_count == u32(0xFFFF_FFFF) {
+	if hdr.ref_count == max(u32) {
 		return false
 	}
 	hdr.ref_count += 1
@@ -128,6 +128,7 @@ obj_init :: #force_inline proc "c" (hdr: ^Obj_Header, t: abi.Obj_Type, destroy: 
 }
 
 // ---- Compile-time invariant ----
-// amd64 freestanding build: 3×u32 + pointer = 24 bytes, pointer-aligned.
-#assert(size_of(Obj_Header) == 24)
-#assert(align_of(Obj_Header) == 8)
+// Obj_Header must fit 3×u32 plus a pointer and keep pointer alignment.
+// On amd64 this is expected to be 24 bytes; keep checks architecture-safe.
+#assert(size_of(Obj_Header) >= 12 + size_of(rawptr))
+#assert(align_of(Obj_Header) >= align_of(rawptr))

@@ -34,11 +34,13 @@
 //   T16 — in-range nil dispatch slot returns ERR_INVALID_SYSCALL
 //   T17 — malformed ingress fails before handler dispatch
 //   T18 — SYS_ABI_INFO rejects non-zero unused args
+//   T19 — nil ingress frame returns ERR_INVALID_ARGS
 // ============================================================
 package cnode_test
 
 import "core:fmt"
 import "core:os"
+import abi "../abi/generated/odin"
 
 // ---- Minimal type replicas (no foreign import, no freestanding) ----
 
@@ -209,6 +211,7 @@ cap_replace :: proc(h: Handle, new_rights: Rights) -> (Handle, Status) {
 
 g_pass := 0
 g_fail := 0
+g_destroy_count := 0
 
 check :: proc(name: string, cond: bool) {
 	if cond {
@@ -218,6 +221,10 @@ check :: proc(name: string, cond: bool) {
 		fmt.printf("  FAIL  %s\n", name)
 		g_fail += 1
 	}
+}
+
+counting_destroy_fn :: proc(hdr: ^Obj_Header) {
+	g_destroy_count += 1
 }
 
 // ---- Tests ----
@@ -362,15 +369,10 @@ test_t08_cap_replace :: proc() {
 test_t09_last_ref_destruction :: proc() {
 	fmt.println("[T09] cap_close on last reference triggers obj_deref (ref_count → 0)")
 	cap_table_init()
-	destroyed := false
-
-	destroy_fn :: proc(hdr: ^Obj_Header) {
-		// Can't easily close a closed var, but we prove the hook fired
-		// by checking ref_count == 0 after obj_deref returns.
-	}
+	g_destroy_count = 0
 
 	obj: Obj_Header
-	obj_init(&obj, OBJ_NONE, destroy_fn)
+	obj_init(&obj, OBJ_NONE, counting_destroy_fn)
 	check("initial ref_count = 0", obj.ref_count == 0)
 
 	h := cap_alloc(&obj, RIGHT_READ)
@@ -378,9 +380,9 @@ test_t09_last_ref_destruction :: proc() {
 
 	st := cap_close(h)
 	check("cap_close returns OK", st == OK)
+	check("destroy hook called exactly once", g_destroy_count == 1)
 	check("ref_count == 0 after last close", obj.ref_count == 0)
 	check("object state is Dead after last close", obj.state == .Dead)
-	_ = destroyed
 }
 
 test_t10_duplicate_requires_right :: proc() {
@@ -408,14 +410,10 @@ test_t11_cap_alloc_nil_fails :: proc() {
 test_t12_close_multi_handle_last_destroys :: proc() {
 	fmt.println("[T12] closing one of multiple handles does not destroy; last close does")
 	cap_table_init()
-
-	destroy_count := 0
-	destroy_fn :: proc(hdr: ^Obj_Header) {
-		destroy_count += 1
-	}
+	g_destroy_count = 0
 
 	obj: Obj_Header
-	obj_init(&obj, OBJ_NONE, destroy_fn)
+	obj_init(&obj, OBJ_NONE, counting_destroy_fn)
 	h1 := cap_alloc(&obj, RIGHT_READ | RIGHT_DUPLICATE)
 	check("first handle alloc succeeds", h1 != HANDLE_INVALID)
 	check("ref_count is 1 after first publish", obj.ref_count == 1)
@@ -428,12 +426,12 @@ test_t12_close_multi_handle_last_destroys :: proc() {
 	st1 := cap_close(h1)
 	check("first close returns OK", st1 == OK)
 	check("object still live after closing one handle", obj.state == .Live)
-	check("destroy hook not called after first close", destroy_count == 0)
+	check("destroy hook not called after first close", g_destroy_count == 0)
 	check("ref_count is 1 after first close", obj.ref_count == 1)
 
 	st2 := cap_close(h2)
 	check("second close returns OK", st2 == OK)
-	check("destroy hook called exactly once on last close", destroy_count == 1)
+	check("destroy hook called exactly once on last close", g_destroy_count == 1)
 	check("object is Dead after last close", obj.state == .Dead)
 	check("ref_count is 0 after last close", obj.ref_count == 0)
 }
@@ -441,25 +439,21 @@ test_t12_close_multi_handle_last_destroys :: proc() {
 test_t13_obj_deref_once_and_extra_noop :: proc() {
 	fmt.println("[T13] obj_deref runs destroy hook once; extra deref at zero is clean no-op")
 	cap_table_init()
-
-	destroy_count := 0
-	destroy_fn :: proc(hdr: ^Obj_Header) {
-		destroy_count += 1
-	}
+	g_destroy_count = 0
 
 	obj: Obj_Header
-	obj_init(&obj, OBJ_NONE, destroy_fn)
+	obj_init(&obj, OBJ_NONE, counting_destroy_fn)
 	h := cap_alloc(&obj, RIGHT_READ)
 	check("alloc succeeds", h != HANDLE_INVALID)
 	check("ref_count is 1 before close", obj.ref_count == 1)
 
 	st := cap_close(h)
 	check("close returns OK", st == OK)
-	check("destroy hook called once after close", destroy_count == 1)
+	check("destroy hook called once after close", g_destroy_count == 1)
 
 	destroyed_again := obj_deref(&obj)
 	check("extra obj_deref at zero returns false", destroyed_again == false)
-	check("destroy hook still called exactly once", destroy_count == 1)
+	check("destroy hook still called exactly once", g_destroy_count == 1)
 }
 
 test_t14_obj_live_rejects_dying_dead :: proc() {
@@ -475,8 +469,8 @@ test_t14_obj_live_rejects_dying_dead :: proc() {
 
 // ---- Minimal syscall dispatch model checks ----
 
-SYSCALL_COUNT :: u32(26)
-SYS_ABI_INFO  :: u32(25)
+SYSCALL_COUNT :: u32(abi.SYSCALL_COUNT)
+SYS_ABI_INFO  :: u32(abi.SYS_ABI_INFO)
 
 Syscall_Frame :: struct {
 	syscall_num: u64,
