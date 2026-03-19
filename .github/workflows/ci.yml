@@ -75,8 +75,9 @@ jobs:
         run: |
           set -euxo pipefail
           ODIN_COMMIT_SHA="c937d38db2b31b885256b9aac0d606032f6c5343"
+          ODIN_REPO_URL="https://github.com/odin-lang/Odin.git"
           rm -rf /tmp/odin-src
-          git clone https://github.com/odin-lang/Odin.git /tmp/odin-src
+          git clone "${ODIN_REPO_URL}" /tmp/odin-src
           cd /tmp/odin-src
           git checkout --detach "${ODIN_COMMIT_SHA}"
           make release-native
