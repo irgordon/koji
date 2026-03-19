@@ -110,6 +110,10 @@ jobs:
             unzip -q /tmp/odin.zip -d /tmp/odin-extract
 
             ODIN_BIN="$(find /tmp/odin-extract -type f -name odin | head -n 1)"
+            if [[ -z "${ODIN_BIN}" ]]; then
+              echo "Failed to locate Odin binary after extraction" >&2
+              exit 1
+            fi
             ODIN_ROOT="$(dirname "$ODIN_BIN")"
 
             cp -R "$ODIN_ROOT"/. ~/.cache/odin/
