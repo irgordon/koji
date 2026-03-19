@@ -74,7 +74,7 @@ g_cap_table: Cap_Table
 //
 // ABI handle encoding:
 //   bits [31:24] generation (u8)
-//   bits [23:0] slot index (u32)
+//   bits [23:0] slot index (stored in lower 24 bits of u32)
 handle_make :: #force_inline proc (index: u32, gen: u8) -> abi.Handle {
 	return abi.Handle((u32(gen) << 24) | (index & 0x00FF_FFFF))
 }
