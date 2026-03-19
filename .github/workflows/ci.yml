@@ -1,0 +1,153 @@
+name: KOJI CI
+
+on:
+  pull_request:
+    paths:
+      - "kernel/**"
+      - "abi/**"
+      - "scripts/**"
+      - "tests/**"
+      - "Makefile"
+      - ".github/workflows/**"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "kernel/**"
+      - "abi/**"
+      - "scripts/**"
+      - "tests/**"
+      - "Makefile"
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: koji-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kernel-proof-gate:
+    name: Build, validate, and prove invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+            pyproject.toml
+
+      - name: Install Python dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python -m pip install --upgrade pip
+          if [[ -f requirements.txt ]]; then pip install -r requirements.txt; fi
+          if [[ -f requirements-dev.txt ]]; then pip install -r requirements-dev.txt; fi
+
+      - name: Install system toolchain
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            lld \
+            llvm \
+            build-essential \
+            curl \
+            unzip \
+            ca-certificates
+
+      - name: Cache Odin toolchain
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/odin
+          key: odin-${{ runner.os }}-${{ runner.arch }}-v1
+
+      - name: Install Odin
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p ~/.cache/odin
+          if [[ ! -x ~/.cache/odin/odin ]]; then
+            python - <<'PY'
+            import json, os, platform, sys, urllib.request
+
+            api = "https://api.github.com/repos/odin-lang/Odin/releases/latest"
+            with urllib.request.urlopen(api) as r:
+                rel = json.load(r)
+
+            asset = None
+            for a in rel["assets"]:
+                name = a["name"].lower()
+                if "linux" in name and ("amd64" in name or "x86_64" in name) and name.endswith(".zip"):
+                    asset = a["browser_download_url"]
+                    break
+
+            if not asset:
+                raise SystemExit("Could not find a Linux amd64 Odin release asset")
+
+            print(asset)
+            open("/tmp/odin-url.txt", "w").write(asset)
+            PY
+            curl -fsSL "$(cat /tmp/odin-url.txt)" -o /tmp/odin.zip
+            rm -rf /tmp/odin-extract
+            mkdir -p /tmp/odin-extract
+            unzip -q /tmp/odin.zip -d /tmp/odin-extract
+
+            ODIN_BIN="$(find /tmp/odin-extract -type f -name odin | head -n 1)"
+            ODIN_ROOT="$(dirname "$ODIN_BIN")"
+
+            cp -R "$ODIN_ROOT"/. ~/.cache/odin/
+            chmod +x ~/.cache/odin/odin
+          fi
+
+          echo "$HOME/.cache/odin" >> "$GITHUB_PATH"
+          odin version
+
+      - name: Verify required tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+          command -v python3
+          command -v odin
+          command -v ld.lld
+          command -v llvm-nm
+          python3 --version
+          odin version
+          ld.lld --version
+          llvm-nm --version
+
+      - name: Canonical build gate
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 scripts/build_kernel.py --check
+
+      - name: Repository validation gate
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 scripts/validate.py
+
+      - name: Focused invariant tests
+        shell: bash
+        run: |
+          set -euxo pipefail
+          odin run tests/cnode_test.odin -file
