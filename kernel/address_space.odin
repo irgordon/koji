@@ -116,7 +116,8 @@ addr_space_destroy :: proc "c" (hdr: ^Obj_Header) {
 	}
 	a := transmute(^Addr_Space_Object)hdr
 	// Phase 4/CCR-005: page-table teardown will happen here.
-	// For the skeleton, just mark it dead.
+	// For the skeleton, clear attachment accounting before marking dead so
+	// dead objects always satisfy thread_count == 0.
 	a.thread_count = 0
 	a.state = .Dead
 }

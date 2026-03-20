@@ -14,14 +14,15 @@ Obj_Header :: struct {
 	destroy_fn: Obj_Destroy_Fn,
 }
 
-obj_init :: proc(hdr: ^Obj_Header, t: abi.Obj_Type, destroy: Obj_Destroy_Fn = nil) {
-	hdr.obj_type   = t
+obj_init :: proc(hdr: ^Obj_Header, obj_type: abi.Obj_Type, destroy: Obj_Destroy_Fn = nil) {
+	hdr.obj_type   = obj_type
 	hdr.state      = .Live
 	hdr.ref_count  = 0
 	hdr.destroy_fn = destroy
 }
 
 Thread_State :: enum u32 {
+	// Keep in lockstep with kernel/thread.odin (host-side focused invariant test).
 	Stopped  = 0,
 	Runnable = 1,
 	Blocked  = 2,
@@ -61,6 +62,7 @@ thread_destroy :: proc(hdr: ^Obj_Header) {
 	t.state = .Dead
 }
 
+// Keep in lockstep with kernel/address_space.odin (host-side focused invariant test).
 Addr_Space_State :: enum u32 { Detached = 0, Attached = 1, Dying = 2, Dead = 3 }
 
 Addr_Space_Object :: struct {
