@@ -86,6 +86,26 @@ Thread_Object :: struct {
 	_pad:         [4]u8,
 }
 
+thread_state_is_valid :: #force_inline proc "c" (s: Thread_State) -> bool {
+	return s >= .Stopped && s <= .Dead
+}
+
+thread_invariants_hold :: #force_inline proc "c" (t: ^Thread_Object) -> bool {
+	if t == nil {
+		return false
+	}
+	if t.header.obj_type != abi.OBJ_THREAD {
+		return false
+	}
+	if !thread_state_is_valid(t.state) {
+		return false
+	}
+	if t.state == .Dead && t.addr_space_h != abi.HANDLE_INVALID {
+		return false
+	}
+	return true
+}
+
 // ---- Thread Pool ----
 
 THREAD_POOL_SIZE :: 256 // matches KOJI_MAX_THREADS_PER_PROC
@@ -113,6 +133,9 @@ thread_alloc :: proc "c" () -> ^Thread_Object {
 			obj_init(&t.header, abi.OBJ_THREAD, thread_destroy)
 			t.state        = .Stopped
 			t.addr_space_h = abi.HANDLE_INVALID
+			if !thread_invariants_hold(t) {
+				return nil
+			}
 			return t
 		}
 	}
@@ -128,6 +151,9 @@ thread_alloc :: proc "c" () -> ^Thread_Object {
 // (enforced by obj_deref via obj_deref → Dying → destroy_fn → Dead).
 @(private)
 thread_destroy :: proc "c" (hdr: ^Obj_Header) {
+	if hdr == nil || hdr.obj_type != abi.OBJ_THREAD {
+		return
+	}
 	t := transmute(^Thread_Object)hdr
 	// Close the address-space handle if one was attached.
 	// (cap_close handles double-close safely via cap_lookup nil check)
@@ -145,6 +171,9 @@ thread_destroy :: proc "c" (hdr: ^Obj_Header) {
 // Returns ERR_INVALID_ARGS if the transition is not permitted.
 
 thread_set_runnable :: proc "c" (t: ^Thread_Object) -> abi.Status {
+	if !thread_invariants_hold(t) {
+		return abi.ERR_INVALID_ARGS
+	}
 	if t.state != .Stopped && t.state != .Blocked {
 		return abi.ERR_INVALID_ARGS
 	}
@@ -153,6 +182,9 @@ thread_set_runnable :: proc "c" (t: ^Thread_Object) -> abi.Status {
 }
 
 thread_set_blocked :: proc "c" (t: ^Thread_Object) -> abi.Status {
+	if !thread_invariants_hold(t) {
+		return abi.ERR_INVALID_ARGS
+	}
 	if t.state != .Runnable {
 		return abi.ERR_INVALID_ARGS
 	}
@@ -161,6 +193,9 @@ thread_set_blocked :: proc "c" (t: ^Thread_Object) -> abi.Status {
 }
 
 thread_set_dying :: proc "c" (t: ^Thread_Object) -> abi.Status {
+	if !thread_invariants_hold(t) {
+		return abi.ERR_INVALID_ARGS
+	}
 	if t.state == .Dying || t.state == .Dead {
 		return abi.ERR_INVALID_ARGS
 	}
@@ -171,3 +206,4 @@ thread_set_dying :: proc "c" (t: ^Thread_Object) -> abi.Status {
 // ---- Compile-time invariants ----
 // 18 × u64 fields in a #packed struct = 144 bytes exactly.
 #assert(size_of(Thread_Arch_Frame) == 18 * 8)
+#assert(offset_of(Thread_Object, header) == 0)
