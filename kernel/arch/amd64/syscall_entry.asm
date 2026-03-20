@@ -100,3 +100,5 @@ syscall_entry_point:
 section .bss
 align 8
 user_rsp_scratch: resq 1
+
+section .note.GNU-stack noalloc noexec nowrite progbits
