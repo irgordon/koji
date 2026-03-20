@@ -58,3 +58,5 @@ port_inl:
     mov dx, di
     in  eax, dx
     ret
+
+section .note.GNU-stack noalloc noexec nowrite progbits

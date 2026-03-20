@@ -74,44 +74,18 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
+          # Pinned to a known-good upstream Odin commit for deterministic CI behavior (updated 2026-03-19).
+          ODIN_COMMIT_SHA="c937d38db2b31b885256b9aac0d606032f6c5343"
+          ODIN_REPO_URL="https://github.com/odin-lang/Odin.git"
+          rm -rf /tmp/odin-src
+          git clone --filter=blob:none --no-checkout "${ODIN_REPO_URL}" /tmp/odin-src
+          cd /tmp/odin-src
+          git fetch --depth=1 origin "${ODIN_COMMIT_SHA}"
+          git checkout --detach "${ODIN_COMMIT_SHA}"
+          make release-native
 
-          python - <<'PY'
-          import json
-          import urllib.request
-
-          api = "https://api.github.com/repos/odin-lang/Odin/releases/latest"
-          with urllib.request.urlopen(api) as r:
-              rel = json.load(r)
-
-          asset = None
-          for a in rel["assets"]:
-              name = a["name"].lower()
-              if "linux" in name and ("amd64" in name or "x86_64" in name) and name.endswith(".zip"):
-                  asset = a["browser_download_url"]
-                  break
-
-          if not asset:
-              raise SystemExit("Could not find a Linux amd64 Odin release asset")
-
-          print(asset)
-          with open("/tmp/odin-url.txt", "w", encoding="utf-8") as f:
-              f.write(asset)
-          PY
-
-          curl -fsSL "$(cat /tmp/odin-url.txt)" -o /tmp/odin.zip
-          rm -rf /tmp/odin-extract
-          mkdir -p /tmp/odin-extract
-          unzip -q /tmp/odin.zip -d /tmp/odin-extract
-
-          ODIN_BIN="$(find /tmp/odin-extract -type f -name odin | head -n 1)"
-          if [[ -z "${ODIN_BIN}" ]]; then
-            echo "Failed to locate Odin binary after extraction" >&2
-            exit 1
-          fi
-
-          ODIN_ROOT="$(dirname "$ODIN_BIN")"
           sudo mkdir -p /usr/local/lib/odin /usr/local/bin
-          sudo cp -R "$ODIN_ROOT"/. /usr/local/lib/odin/
+          sudo cp -R /tmp/odin-src/. /usr/local/lib/odin/
           sudo ln -sf /usr/local/lib/odin/odin /usr/local/bin/odin
           sudo chmod +x /usr/local/lib/odin/odin
 

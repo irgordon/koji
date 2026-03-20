@@ -23,8 +23,9 @@ NASM       := nasm
 LD         := ld
 
 # ---- Odin flags ----
-ODIN_FLAGS := -target:freestanding_amd64 \
+ODIN_FLAGS := -target:freestanding_amd64_sysv \
               -build-mode:obj \
+              -use-single-module \
               -no-crt \
               -disable-red-zone \
               -default-to-nil-allocator \
