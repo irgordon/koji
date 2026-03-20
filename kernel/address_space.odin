@@ -51,6 +51,29 @@ Addr_Space_Object :: struct {
 	_reserved:    [8]u8,      // placeholder for arch-specific cr3 / page table root
 }
 
+addr_space_state_is_valid :: #force_inline proc "c" (s: Addr_Space_State) -> bool {
+	return s >= .Detached && s <= .Dead
+}
+
+addr_space_invariants_hold :: #force_inline proc "c" (a: ^Addr_Space_Object) -> bool {
+	if a == nil {
+		return false
+	}
+	if a.header.obj_type != abi.OBJ_VMAR {
+		return false
+	}
+	if !addr_space_state_is_valid(a.state) {
+		return false
+	}
+	if a.state == .Attached && a.thread_count == 0 {
+		return false
+	}
+	if a.state == .Detached && a.thread_count != 0 {
+		return false
+	}
+	return true
+}
+
 // ---- Address Space Pool ----
 
 ADDR_SPACE_POOL_SIZE :: 64 // per-process limit for v1
@@ -73,6 +96,9 @@ addr_space_alloc :: proc "c" () -> ^Addr_Space_Object {
 			obj_init(&a.header, abi.OBJ_VMAR, addr_space_destroy)
 			a.state        = .Detached
 			a.thread_count = 0
+			if !addr_space_invariants_hold(a) {
+				return nil
+			}
 			return a
 		}
 	}
@@ -85,9 +111,13 @@ addr_space_alloc :: proc "c" () -> ^Addr_Space_Object {
 // an address space is closed.
 @(private)
 addr_space_destroy :: proc "c" (hdr: ^Obj_Header) {
+	if hdr == nil || hdr.obj_type != abi.OBJ_VMAR {
+		return
+	}
 	a := transmute(^Addr_Space_Object)hdr
 	// Phase 4/CCR-005: page-table teardown will happen here.
 	// For the skeleton, just mark it dead.
+	a.thread_count = 0
 	a.state = .Dead
 }
 
@@ -96,6 +126,9 @@ addr_space_destroy :: proc "c" (hdr: ^Obj_Header) {
 // addr_space_attach increments thread_count and transitions to Attached.
 // Returns ERR_INVALID_ARGS if the address space is Dying or Dead.
 addr_space_attach :: proc "c" (a: ^Addr_Space_Object) -> abi.Status {
+	if !addr_space_invariants_hold(a) {
+		return abi.ERR_INVALID_ARGS
+	}
 	if a.state == .Dying || a.state == .Dead {
 		return abi.ERR_INVALID_ARGS
 	}
@@ -107,6 +140,9 @@ addr_space_attach :: proc "c" (a: ^Addr_Space_Object) -> abi.Status {
 // addr_space_detach decrements thread_count.
 // Returns ERR_INVALID_ARGS if the address space is not Attached.
 addr_space_detach :: proc "c" (a: ^Addr_Space_Object) -> abi.Status {
+	if !addr_space_invariants_hold(a) {
+		return abi.ERR_INVALID_ARGS
+	}
 	if a.state != .Attached || a.thread_count == 0 {
 		return abi.ERR_INVALID_ARGS
 	}
@@ -116,3 +152,5 @@ addr_space_detach :: proc "c" (a: ^Addr_Space_Object) -> abi.Status {
 	}
 	return abi.OK
 }
+
+#assert(offset_of(Addr_Space_Object, header) == 0)
