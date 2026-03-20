@@ -1,0 +1,46 @@
+name: Copilot Setup Steps
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+permissions:
+  contents: read
+
+jobs:
+  copilot-setup-steps:
+    name: copilot-setup-steps
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Prepare pip
+        run: |
+          set -euxo pipefail
+          python -m pip install --upgrade pip
+
+      - name: Show environment
+        run: |
+          set -euxo pipefail
+          uname -a
+          python --version
+          pip --version
+          make --version
+
+      - name: Warm validation path
+        run: |
+          set -euxo pipefail
+          make verify
