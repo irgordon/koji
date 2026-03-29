@@ -112,6 +112,12 @@ jobs:
           set -euxo pipefail
           make test
 
+      - name: Private lifetime invariant gate
+        shell: bash
+        run: |
+          set -euxo pipefail
+          odin run tests/private_lifetime_test.odin -file
+
       - name: Canonical build gate
         shell: bash
         run: |
