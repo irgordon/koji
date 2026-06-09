@@ -1,0 +1,101 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Koji control panel browser mockup</title>
+  <desc id="desc">A marketing mockup of the Koji server control panel showing overview gauges, service status, job approvals, and activity.</desc>
+  <rect width="1440" height="900" fill="#F5F7FA"/>
+
+  <rect x="96" y="70" width="1248" height="760" rx="18" fill="#FFFFFF" stroke="#D9E1EA" stroke-width="2"/>
+  <rect x="96" y="70" width="1248" height="58" rx="18" fill="#F8FAFC"/>
+  <path d="M96 112H1344" stroke="#D9E1EA" stroke-width="2"/>
+  <circle cx="130" cy="99" r="7" fill="#F87171"/>
+  <circle cx="154" cy="99" r="7" fill="#FBBF24"/>
+  <circle cx="178" cy="99" r="7" fill="#34D399"/>
+  <rect x="226" y="84" width="708" height="30" rx="15" fill="#FFFFFF" stroke="#D9E1EA"/>
+  <text x="254" y="104" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="14">https://koji.local/overview</text>
+
+  <rect x="96" y="128" width="250" height="702" fill="#101820"/>
+  <text x="132" y="184" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">Koji</text>
+  <text x="132" y="213" fill="#91A1B2" font-family="Inter, Arial, sans-serif" font-size="14">Governed host control</text>
+
+  <rect x="126" y="258" width="190" height="42" rx="8" fill="#1F7A8C"/>
+  <text x="160" y="284" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">Overview</text>
+  <text x="160" y="338" fill="#AAB7C4" font-family="Inter, Arial, sans-serif" font-size="15">Services</text>
+  <text x="160" y="389" fill="#AAB7C4" font-family="Inter, Arial, sans-serif" font-size="15">Processes</text>
+  <text x="160" y="440" fill="#AAB7C4" font-family="Inter, Arial, sans-serif" font-size="15">Jobs</text>
+  <text x="160" y="491" fill="#AAB7C4" font-family="Inter, Arial, sans-serif" font-size="15">Activity</text>
+  <text x="160" y="542" fill="#AAB7C4" font-family="Inter, Arial, sans-serif" font-size="15">Settings</text>
+
+  <rect x="126" y="734" width="190" height="58" rx="10" fill="#16242E"/>
+  <circle cx="154" cy="763" r="7" fill="#34D399"/>
+  <text x="174" y="768" fill="#DDE6EF" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">Online</text>
+
+  <rect x="346" y="128" width="998" height="702" fill="#F8FAFC"/>
+  <text x="386" y="185" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="31" font-weight="800">Overview</text>
+  <text x="386" y="214" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="15">Safe host summary and operational readiness.</text>
+  <rect x="1128" y="166" width="176" height="40" rx="8" fill="#FFFFFF" stroke="#D9E1EA"/>
+  <text x="1152" y="191" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="14">Uptime: 18d 7h</text>
+
+  <g>
+    <rect x="386" y="250" width="206" height="180" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <text x="414" y="288" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">CPU</text>
+    <circle cx="489" cy="350" r="52" stroke="#E5EDF5" stroke-width="16"/>
+    <path d="M489 298A52 52 0 0 1 540 359" stroke="#1F7A8C" stroke-width="16" stroke-linecap="round"/>
+    <text x="455" y="360" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="800">37%</text>
+    <text x="420" y="403" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="13">Current utilization</text>
+  </g>
+
+  <g>
+    <rect x="616" y="250" width="206" height="180" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <text x="644" y="288" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">Memory</text>
+    <circle cx="719" cy="350" r="52" stroke="#E5EDF5" stroke-width="16"/>
+    <path d="M719 298A52 52 0 1 1 680 385" stroke="#2563EB" stroke-width="16" stroke-linecap="round"/>
+    <text x="685" y="360" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="800">64%</text>
+    <text x="650" y="403" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="13">16.2 GB used</text>
+  </g>
+
+  <g>
+    <rect x="846" y="250" width="206" height="180" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <text x="874" y="288" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">Disk</text>
+    <circle cx="949" cy="350" r="52" stroke="#E5EDF5" stroke-width="16"/>
+    <path d="M949 298A52 52 0 0 1 998 368" stroke="#10B981" stroke-width="16" stroke-linecap="round"/>
+    <text x="915" y="360" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="800">42%</text>
+    <text x="880" y="403" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="13">/var/lib/koji</text>
+  </g>
+
+  <g>
+    <rect x="1076" y="250" width="228" height="180" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <text x="1104" y="288" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">Readiness</text>
+    <rect x="1104" y="315" width="84" height="28" rx="14" fill="#D1FAE5"/>
+    <text x="1122" y="334" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">DB ok</text>
+    <rect x="1104" y="357" width="144" height="28" rx="14" fill="#FEF3C7"/>
+    <text x="1122" y="376" fill="#92400E" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">Agent disabled</text>
+    <rect x="1104" y="399" width="104" height="28" rx="14" fill="#DBEAFE"/>
+    <text x="1122" y="418" fill="#1D4ED8" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">Safe mode</text>
+  </g>
+
+  <rect x="386" y="462" width="440" height="280" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+  <text x="414" y="501" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800">Allowlisted Services</text>
+  <line x1="414" y1="526" x2="798" y2="526" stroke="#E2E8F0"/>
+  <text x="414" y="562" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">ssh.service</text>
+  <rect x="688" y="543" width="72" height="28" rx="14" fill="#D1FAE5"/>
+  <text x="708" y="562" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">active</text>
+  <text x="414" y="611" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">kojid.service</text>
+  <rect x="688" y="592" width="72" height="28" rx="14" fill="#D1FAE5"/>
+  <text x="708" y="611" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">active</text>
+  <text x="414" y="660" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">koji-agent.service</text>
+  <rect x="662" y="641" width="98" height="28" rx="14" fill="#FEF3C7"/>
+  <text x="681" y="660" fill="#92400E" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">disabled</text>
+
+  <rect x="856" y="462" width="448" height="280" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+  <text x="884" y="501" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800">Jobs and Activity</text>
+  <line x1="884" y1="526" x2="1276" y2="526" stroke="#E2E8F0"/>
+  <text x="884" y="562" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">Restart ssh.service</text>
+  <rect x="1158" y="543" width="92" height="28" rx="14" fill="#DBEAFE"/>
+  <text x="1179" y="562" fill="#1D4ED8" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">queued</text>
+  <text x="884" y="611" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">Approve job</text>
+  <rect x="1158" y="592" width="92" height="28" rx="14" fill="#D1FAE5"/>
+  <text x="1175" y="611" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">audited</text>
+  <text x="884" y="660" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">Agent mutation</text>
+  <rect x="1116" y="641" width="134" height="28" rx="14" fill="#FEE2E2"/>
+  <text x="1137" y="660" fill="#B91C1C" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">disabled</text>
+  <text x="884" y="706" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="13">Request ID: req_8F2A7C19</text>
+</svg>

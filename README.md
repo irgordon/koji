@@ -11,6 +11,8 @@
 
 </div>
 
+![Koji browser UI mockup](docs/assets/koji-browser-mockup.svg)
+
 Koji is a modern control panel built for operators who want clarity, confidence, and calm control over their servers. It turns the noisy, high-risk work of host administration into a focused operating experience: see what matters, understand what changed, approve sensitive actions deliberately, and keep a durable record of the decisions that shape your environment. Koji is designed to feel trustworthy from the first screen: polished enough for daily operations, restrained enough for production systems, and structured around the idea that powerful infrastructure tools should be governed, visible, and easy to reason about.
 
 ## Architecture Overview
