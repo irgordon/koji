@@ -1,27 +1,17 @@
-# Koji
+# Koji Documentation
 
-Koji is a small server control panel for bare-metal and VPS systems.
+The repository root README is the marketing-forward project introduction.
 
-The project is designed as a surgical tool:
-
-- Small static Go backend where practical.
-- TypeScript and pure React UI.
-- Unprivileged web/API daemon.
-- Narrow privileged local agent.
-- SQLite durable state.
-- Native Linux data sources first.
-- Strict configuration and capability enforcement.
-
-Before implementation, read:
+Start here for engineering governance:
 
 1. `ARCHITECTURE.md`
 2. `INVARIANTS.md`
-3. `CODING_STYLE.md`
-4. `SECURITY.md`
+3. `SECURITY.md`
+4. `CODING_STYLE.md`
 5. `PHASEMAP.md`
 6. `AGENTS.md`
 
-Core rule:
+Core invariant:
 
 ```text
 The browser is never authoritative.
