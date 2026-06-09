@@ -296,9 +296,9 @@ Service-control requests create queued durable jobs before any privileged execut
 
 Queued service-control jobs require an explicit human approval or rejection decision before any future worker or agent execution path may consume them.
 
-The daemon worker may claim only approved jobs. Current worker execution is non-mutating: service-control jobs can advance to `running`, then to `not_implemented` or `failed` based on the agent RPC result.
+The daemon worker may claim only approved jobs. Service-control jobs can advance to `running`, then to `completed` or `failed` based on normalized agent RPC results.
 
-The agent independently validates service name, action, and its own service allowlist before any future mutation command can run. When mutation is disabled, requests stop at `mutation_disabled`.
+The agent independently validates service name, action, and its own service allowlist before mutation can run. When mutation is disabled, requests stop at `mutation_disabled`.
 
 Examples:
 

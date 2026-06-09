@@ -13,18 +13,14 @@ import (
 type Executor struct {
 	mutationEnabled bool
 	allowlist       map[string]struct{}
-	runner          commandRunner
-}
-
-type commandRunner interface {
-	Run(ctx context.Context, executable string, args ...string) (command.Result, error)
+	runner          command.CommandRunner
 }
 
 func NewExecutor(cfg config.Config) Executor {
 	return NewExecutorWithRunner(cfg, command.NewAgentMutationRunner(cfg.AgentCommandTimeout, cfg.AgentCommandOutputLimit))
 }
 
-func NewExecutorWithRunner(cfg config.Config, runner commandRunner) Executor {
+func NewExecutorWithRunner(cfg config.Config, runner command.CommandRunner) Executor {
 	return Executor{
 		mutationEnabled: cfg.AgentMutationEnabled,
 		allowlist:       serviceAllowlist(cfg.AgentServiceAllowlist),
@@ -42,7 +38,7 @@ func (e Executor) ControlService(ctx context.Context, request ServiceControlRequ
 	if !e.serviceAllowed(request.Service) {
 		return errorResponse(ReasonServiceNotAllowlisted)
 	}
-	if err := e.runSystemctl(ctx, request); err != nil {
+	if err := e.runServiceMutation(ctx, request); err != nil {
 		return errorResponse(commandFailureReason(err))
 	}
 	return RPCResponse{Status: ResponseOK}
@@ -53,8 +49,8 @@ func (e Executor) serviceAllowed(service string) bool {
 	return ok
 }
 
-func (e Executor) runSystemctl(ctx context.Context, request ServiceControlRequest) error {
-	_, err := e.runner.Run(ctx, "systemctl", request.Action, request.Service)
+func (e Executor) runServiceMutation(ctx context.Context, request ServiceControlRequest) error {
+	_, err := command.RunServiceMutation(ctx, e.runner, request.Action, request.Service)
 	return err
 }
 

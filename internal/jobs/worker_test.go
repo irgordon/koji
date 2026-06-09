@@ -59,21 +59,21 @@ func TestDoubleClaimCannotHappen(t *testing.T) {
 	}
 }
 
-func TestWorkerMarksNotImplementedAgentResponse(t *testing.T) {
+func TestWorkerCompletesSuccessfulAgentResponse(t *testing.T) {
 	database := openJobsTestDB(t)
 	defer database.Close()
 	store := NewStore(database)
 	userID := insertJobsTestUser(t, database)
 	job := createApprovedJob(t, store, userID)
-	worker := NewWorker(store, fakeServiceController{err: agent.ErrNotImplemented}, audit.NewStore(database), time.Millisecond)
+	worker := NewWorker(store, fakeServiceController{}, audit.NewStore(database), time.Millisecond)
 
 	if err := worker.ProcessOne(context.Background()); err != nil {
 		t.Fatalf("process job: %v", err)
 	}
 
 	stored := readJobsTestJob(t, store, job.ID)
-	if stored.Status != StatusNotImplemented || stored.StatusReason != StatusNotImplemented {
-		t.Fatalf("expected not implemented job, got %#v", stored)
+	if stored.Status != StatusCompleted || stored.StatusReason != StatusCompleted {
+		t.Fatalf("expected completed job, got %#v", stored)
 	}
 }
 
@@ -113,6 +113,24 @@ func TestWorkerPreservesAgentCommandFailureReason(t *testing.T) {
 	}
 }
 
+func TestWorkerPreservesAgentCommandTimeoutReason(t *testing.T) {
+	database := openJobsTestDB(t)
+	defer database.Close()
+	store := NewStore(database)
+	userID := insertJobsTestUser(t, database)
+	job := createApprovedJob(t, store, userID)
+	worker := NewWorker(store, fakeServiceController{err: agent.ErrAgentTimeout}, audit.NewStore(database), time.Millisecond)
+
+	if err := worker.ProcessOne(context.Background()); err != nil {
+		t.Fatalf("process job: %v", err)
+	}
+
+	stored := readJobsTestJob(t, store, job.ID)
+	if stored.Status != StatusFailed || stored.StatusReason != ReasonCommandTimeout {
+		t.Fatalf("expected command timeout job, got %#v", stored)
+	}
+}
+
 func TestWorkerMapsMutationDisabledSafely(t *testing.T) {
 	database := openJobsTestDB(t)
 	defer database.Close()
@@ -126,7 +144,7 @@ func TestWorkerMapsMutationDisabledSafely(t *testing.T) {
 	}
 
 	stored := readJobsTestJob(t, store, job.ID)
-	if stored.Status != StatusNotImplemented || stored.StatusReason != ReasonMutationDisabled {
+	if stored.Status != StatusFailed || stored.StatusReason != ReasonMutationDisabled {
 		t.Fatalf("expected mutation disabled job, got %#v", stored)
 	}
 }
@@ -159,14 +177,20 @@ func TestWorkerAuditEventsAreWritten(t *testing.T) {
 	store := NewStore(database)
 	userID := insertJobsTestUser(t, database)
 	createApprovedJob(t, store, userID)
-	worker := NewWorker(store, fakeServiceController{err: agent.ErrNotImplemented}, audit.NewStore(database), time.Millisecond)
+	worker := NewWorker(store, fakeServiceController{}, audit.NewStore(database), time.Millisecond)
 
 	if err := worker.ProcessOne(context.Background()); err != nil {
 		t.Fatalf("process job: %v", err)
 	}
 	assertJobsAuditEvent(t, database, audit.ActionJobStarted, audit.OutcomeAccepted)
-	assertJobsAuditEvent(t, database, audit.ActionJobNotImpl, audit.OutcomeRejected)
+	assertJobsAuditEvent(t, database, audit.ActionJobCompleted, audit.OutcomeSuccess)
 	assertJobsAuditEvent(t, database, audit.ActionJobStatus, audit.OutcomeAccepted)
+}
+
+func TestWorkerFailureAuditEventsAreWritten(t *testing.T) {
+	assertWorkerFailureAuditEvent(t, agent.ErrCommandFailed, audit.ActionJobCmdFailed)
+	assertWorkerFailureAuditEvent(t, agent.ErrAgentTimeout, audit.ActionJobCmdTimeout)
+	assertWorkerFailureAuditEvent(t, agent.ErrMutationDisabled, audit.ActionJobMutationOff)
 }
 
 func openJobsTestDB(t *testing.T) *sql.DB {
@@ -233,6 +257,22 @@ func readJobsTestJob(t *testing.T, store *Store, id string) Job {
 		t.Fatalf("read job: %v", err)
 	}
 	return job
+}
+
+func assertWorkerFailureAuditEvent(t *testing.T, workerErr error, action string) {
+	t.Helper()
+
+	database := openJobsTestDB(t)
+	defer database.Close()
+	store := NewStore(database)
+	userID := insertJobsTestUser(t, database)
+	createApprovedJob(t, store, userID)
+	worker := NewWorker(store, fakeServiceController{err: workerErr}, audit.NewStore(database), time.Millisecond)
+
+	if err := worker.ProcessOne(context.Background()); err != nil {
+		t.Fatalf("process job: %v", err)
+	}
+	assertJobsAuditEvent(t, database, action, audit.OutcomeFailure)
 }
 
 func assertJobsAuditEvent(t *testing.T, database *sql.DB, action string, outcome string) {

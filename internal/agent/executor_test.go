@@ -25,7 +25,8 @@ func (r *recordingRunner) Run(ctx context.Context, executable string, args ...st
 }
 
 func TestExecutorReturnsMutationDisabledByDefault(t *testing.T) {
-	executor := NewExecutor(config.NewDefaultConfig())
+	runner := &recordingRunner{}
+	executor := NewExecutorWithRunner(config.NewDefaultConfig(), runner)
 
 	response := executor.ControlService(context.Background(), ServiceControlRequest{
 		Service: "ssh.service",
@@ -33,10 +34,12 @@ func TestExecutorReturnsMutationDisabledByDefault(t *testing.T) {
 	})
 
 	assertAgentResponse(t, response, ResponseError, ReasonMutationDisabled)
+	assertRunnerNotCalled(t, runner)
 }
 
 func TestExecutorRejectsNonAllowlistedService(t *testing.T) {
-	executor := enabledExecutor([]string{"kojid.service"}, nil)
+	runner := &recordingRunner{}
+	executor := enabledExecutor([]string{"kojid.service"}, runner)
 
 	response := executor.ControlService(context.Background(), ServiceControlRequest{
 		Service: "ssh.service",
@@ -44,10 +47,12 @@ func TestExecutorRejectsNonAllowlistedService(t *testing.T) {
 	})
 
 	assertAgentResponse(t, response, ResponseError, ReasonServiceNotAllowlisted)
+	assertRunnerNotCalled(t, runner)
 }
 
 func TestExecutorRejectsUnsupportedAction(t *testing.T) {
-	executor := enabledExecutor([]string{"ssh.service"}, nil)
+	runner := &recordingRunner{}
+	executor := enabledExecutor([]string{"ssh.service"}, runner)
 
 	response := executor.ControlService(context.Background(), ServiceControlRequest{
 		Service: "ssh.service",
@@ -55,25 +60,40 @@ func TestExecutorRejectsUnsupportedAction(t *testing.T) {
 	})
 
 	assertAgentResponse(t, response, ResponseError, ReasonUnsupportedAction)
+	assertRunnerNotCalled(t, runner)
 }
 
-func TestEnabledMutationUsesPlatformCommandRunner(t *testing.T) {
+func TestEnabledMutationStartsServiceThroughPlatformCommandRunner(t *testing.T) {
+	assertServiceMutationArgv(t, "start")
+}
+
+func TestEnabledMutationStopsServiceThroughPlatformCommandRunner(t *testing.T) {
+	assertServiceMutationArgv(t, "stop")
+}
+
+func TestEnabledMutationRestartsServiceThroughPlatformCommandRunner(t *testing.T) {
+	assertServiceMutationArgv(t, "restart")
+}
+
+func assertServiceMutationArgv(t *testing.T, action string) {
+	t.Helper()
+
 	runner := &recordingRunner{}
 	executor := enabledExecutor([]string{"ssh.service"}, runner)
 
 	response := executor.ControlService(context.Background(), ServiceControlRequest{
 		Service: "ssh.service",
-		Action:  "restart",
+		Action:  action,
 	})
 
 	assertAgentResponse(t, response, ResponseOK, "")
 	if !runner.called {
 		t.Fatal("expected command runner call")
 	}
-	if runner.executable != "systemctl" {
-		t.Fatalf("expected systemctl executable, got %q", runner.executable)
+	if runner.executable != command.ServiceManager {
+		t.Fatalf("expected service manager executable, got %q", runner.executable)
 	}
-	if len(runner.args) != 2 || runner.args[0] != "restart" || runner.args[1] != "ssh.service" {
+	if len(runner.args) != 2 || runner.args[0] != action || runner.args[1] != "ssh.service" {
 		t.Fatalf("unexpected runner args: %#v", runner.args)
 	}
 }
@@ -97,7 +117,7 @@ func TestClientMapsMutationDisabled(t *testing.T) {
 	}
 }
 
-func enabledExecutor(allowlist []string, runner commandRunner) Executor {
+func enabledExecutor(allowlist []string, runner command.CommandRunner) Executor {
 	if runner == nil {
 		runner = &recordingRunner{}
 	}
@@ -107,6 +127,14 @@ func enabledExecutor(allowlist []string, runner commandRunner) Executor {
 		AgentCommandTimeout:     time.Second,
 		AgentCommandOutputLimit: command.DefaultOutputLimit,
 	}, runner)
+}
+
+func assertRunnerNotCalled(t *testing.T, runner *recordingRunner) {
+	t.Helper()
+
+	if runner.called {
+		t.Fatal("expected runner not to be called")
+	}
 }
 
 func assertAgentResponse(t *testing.T, response RPCResponse, status string, reason string) {

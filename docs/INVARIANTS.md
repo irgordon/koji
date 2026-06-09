@@ -130,7 +130,8 @@ Required invariants:
 - Job approval and rejection require `jobs.approve`.
 - Only queued jobs may be approved or rejected.
 - The job worker may claim only approved jobs.
-- The job worker does not execute privileged service mutation.
+- The job worker delegates service mutation to the agent boundary.
+- Agent service mutation is disabled by default and must be explicitly enabled.
 - Jobs emit events.
 - Job events preserve progress and failure state.
 - Job lifecycle status changes are audited.

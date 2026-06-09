@@ -244,6 +244,23 @@ func TestLoadAgentAppliesCommandBounds(t *testing.T) {
 	}
 }
 
+func TestLoadAgentParsesYAMLServiceAllowlist(t *testing.T) {
+	path := writeBareTestConfig(t, `
+agent_mutation_enabled: true
+agent_service_allowlist:
+  - sshd.service
+  - nginx.service
+`)
+
+	cfg, err := LoadAgent(path)
+	if err != nil {
+		t.Fatalf("expected valid agent allowlist config: %v", err)
+	}
+	if len(cfg.AgentServiceAllowlist) != 2 {
+		t.Fatalf("expected two agent services, got %#v", cfg.AgentServiceAllowlist)
+	}
+}
+
 func writeTestConfig(t *testing.T, content string) string {
 	t.Helper()
 

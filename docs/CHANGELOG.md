@@ -42,6 +42,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Protected job approval/rejection APIs and Jobs page decision controls.
 - Daemon-owned job worker skeleton for approved service-control jobs.
 - Agent-side service mutation guardrails with disabled-by-default mutation, independent allowlist validation, bounded command runner integration, and normalized response codes.
+- Controlled agent service mutation enablement through the guarded executor and platform command runner.
 
 ### Changed
 
@@ -58,10 +59,10 @@ This project follows a forward-only operational style. Database schema changes r
 - Readiness now reports DB, migration, and agent reachability state without exposing protected host data.
 - Activity now replaces the placeholder with a dedicated capability-protected audit view.
 - Service-control intent now creates a durable queued job instead of synchronously waiting on agent RPC.
-- Service-control agent errors now return safe specific messages for unavailable and not-implemented states.
+- Service-control agent errors now return safe specific messages for unavailable, disabled, validation, allowlist, timeout, and command failure states.
 - Activity now replaces the placeholder with a dedicated capability-protected audit view.
 - Queued jobs now require an explicit approval or rejection transition before any future execution path can consume them.
-- Approved jobs can be claimed by the worker as `running` and then safely marked `not_implemented` or `failed` without enabling service mutation.
+- Approved jobs can be claimed by the worker as `running` and then marked `completed` or `failed` from normalized agent outcomes.
 - Agent service-control RPC now returns `mutation_disabled` by default and maps agent execution outcomes to safe reason codes.
 
 ### Removed

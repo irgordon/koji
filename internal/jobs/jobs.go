@@ -105,16 +105,12 @@ func (s *Store) ClaimApproved(ctx context.Context) (Job, error) {
 	return scanClaimedJob(row)
 }
 
-func (s *Store) MarkNotImplemented(ctx context.Context, id string) (Job, error) {
-	return s.markNotImplemented(ctx, id, StatusNotImplemented)
-}
-
 func (s *Store) MarkFailed(ctx context.Context, id string, reason string) (Job, error) {
 	return s.finishRunning(ctx, id, StatusFailed, reason)
 }
 
-func (s *Store) markNotImplemented(ctx context.Context, id string, reason string) (Job, error) {
-	return s.finishRunning(ctx, id, StatusNotImplemented, reason)
+func (s *Store) MarkCompleted(ctx context.Context, id string) (Job, error) {
+	return s.finishRunning(ctx, id, StatusCompleted, StatusCompleted)
 }
 
 func newQueuedJob(request CreateRequest) Job {

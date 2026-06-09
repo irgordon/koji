@@ -23,7 +23,7 @@ func GetServiceStatusWithRunner(ctx context.Context, name string, runner command
 		return ServiceStatus{}, err
 	}
 
-	result, err := runner.Run(ctx, "systemctl", "show", name, "--property=ActiveState,SubState")
+	result, err := command.RunServiceStatus(ctx, runner, name)
 	if err != nil {
 		return ServiceStatus{}, command.SafeError(err)
 	}

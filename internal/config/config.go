@@ -248,12 +248,23 @@ func validateURL(rawURL string) error {
 func parseConfig(content *os.File, cfg *Config) error {
 	scanner := bufio.NewScanner(content)
 	seen := map[string]bool{}
+	pendingListKey := ""
 
 	for lineNumber := 1; scanner.Scan(); lineNumber++ {
 		line := strings.TrimSpace(scanner.Text())
 		if isIgnoredConfigLine(line) {
 			continue
 		}
+		if isListItem(line) {
+			if pendingListKey == "" {
+				return fmt.Errorf("parse config line %d: unexpected list item", lineNumber)
+			}
+			if err := appendConfigListItem(cfg, pendingListKey, line); err != nil {
+				return fmt.Errorf("parse config line %d: %w", lineNumber, err)
+			}
+			continue
+		}
+		pendingListKey = ""
 
 		key, value, err := splitConfigLine(line)
 		if err != nil {
@@ -267,10 +278,37 @@ func parseConfig(content *os.File, cfg *Config) error {
 		if err := applyConfigField(cfg, key, value); err != nil {
 			return fmt.Errorf("parse config line %d: %w", lineNumber, err)
 		}
+		if isListConfigField(key) && value == "" {
+			pendingListKey = key
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("scan config: %w", err)
+	}
+	return nil
+}
+
+func isListItem(line string) bool {
+	return strings.HasPrefix(line, "- ")
+}
+
+func isListConfigField(key string) bool {
+	return key == "service_allowlist" || key == "agent_service_allowlist"
+}
+
+func appendConfigListItem(cfg *Config, key string, line string) error {
+	value := strings.Trim(strings.TrimSpace(strings.TrimPrefix(line, "- ")), `"'`)
+	if value == "" {
+		return fmt.Errorf("empty list item")
+	}
+	switch key {
+	case "service_allowlist":
+		cfg.ServiceAllowlist = append(cfg.ServiceAllowlist, value)
+	case "agent_service_allowlist":
+		cfg.AgentServiceAllowlist = append(cfg.AgentServiceAllowlist, value)
+	default:
+		return fmt.Errorf("unsupported list field %q", key)
 	}
 	return nil
 }

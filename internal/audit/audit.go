@@ -23,7 +23,11 @@ const (
 	ActionJobApproveDeny = "job.approval_denied"
 	ActionJobStarted     = "job.started"
 	ActionJobNotImpl     = "job.not_implemented"
+	ActionJobCompleted   = "job.completed"
 	ActionJobFailed      = "job.failed"
+	ActionJobCmdFailed   = "job.command_failed"
+	ActionJobCmdTimeout  = "job.command_timeout"
+	ActionJobMutationOff = "job.mutation_disabled"
 )
 
 const (

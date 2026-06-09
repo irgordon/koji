@@ -76,21 +76,21 @@ func (w *Worker) executeClaimedJob(ctx context.Context, job Job) error {
 	if err := w.agent.ControlService(ctx, request); err != nil {
 		return w.applyAgentError(ctx, job.ID, err)
 	}
-	return w.markFailed(ctx, job.ID, ReasonInvalidJob)
+	return w.markCompleted(ctx, job.ID)
 }
 
 func (w *Worker) applyAgentError(ctx context.Context, id string, err error) error {
 	if errors.Is(err, agent.ErrNotImplemented) {
-		return w.markNotImplemented(ctx, id, StatusNotImplemented)
+		return w.markFailedWithAudit(ctx, id, StatusNotImplemented, audit.ActionJobFailed)
 	}
 	if errors.Is(err, agent.ErrMutationDisabled) {
-		return w.markNotImplemented(ctx, id, ReasonMutationDisabled)
+		return w.markFailedWithAudit(ctx, id, ReasonMutationDisabled, audit.ActionJobMutationOff)
 	}
 	if errors.Is(err, agent.ErrCommandFailed) {
-		return w.markFailed(ctx, id, ReasonCommandFailed)
+		return w.markFailedWithAudit(ctx, id, ReasonCommandFailed, audit.ActionJobCmdFailed)
 	}
 	if errors.Is(err, agent.ErrAgentTimeout) {
-		return w.markFailed(ctx, id, ReasonCommandTimeout)
+		return w.markFailedWithAudit(ctx, id, ReasonCommandTimeout, audit.ActionJobCmdTimeout)
 	}
 	if errors.Is(err, agent.ErrServiceNotAllowlisted) {
 		return w.markFailed(ctx, id, ReasonServiceDenied)
@@ -104,23 +104,27 @@ func (w *Worker) applyAgentError(ctx context.Context, id string, err error) erro
 	return w.markFailed(ctx, id, ReasonAgentUnavailable)
 }
 
-func (w *Worker) markNotImplemented(ctx context.Context, id string, reason string) error {
-	job, err := w.store.markNotImplemented(ctx, id, reason)
+func (w *Worker) markCompleted(ctx context.Context, id string) error {
+	job, err := w.store.MarkCompleted(ctx, id)
 	if err != nil {
 		return err
 	}
-	if err := w.recordJobEvent(ctx, audit.ActionJobNotImpl, audit.OutcomeRejected, job); err != nil {
+	if err := w.recordJobEvent(ctx, audit.ActionJobCompleted, audit.OutcomeSuccess, job); err != nil {
 		return err
 	}
 	return w.recordJobEvent(ctx, audit.ActionJobStatus, audit.OutcomeAccepted, job)
 }
 
 func (w *Worker) markFailed(ctx context.Context, id string, reason string) error {
+	return w.markFailedWithAudit(ctx, id, reason, audit.ActionJobFailed)
+}
+
+func (w *Worker) markFailedWithAudit(ctx context.Context, id string, reason string, action string) error {
 	job, err := w.store.MarkFailed(ctx, id, reason)
 	if err != nil {
 		return err
 	}
-	if err := w.recordJobEvent(ctx, audit.ActionJobFailed, audit.OutcomeFailure, job); err != nil {
+	if err := w.recordJobEvent(ctx, action, audit.OutcomeFailure, job); err != nil {
 		return err
 	}
 	return w.recordJobEvent(ctx, audit.ActionJobStatus, audit.OutcomeAccepted, job)

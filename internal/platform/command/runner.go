@@ -14,6 +14,7 @@ import (
 const (
 	DefaultTimeout     = 3 * time.Second
 	DefaultOutputLimit = 64 * 1024
+	ServiceManager     = "systemctl"
 )
 
 var (
@@ -36,12 +37,24 @@ type Result struct {
 	StderrTruncated bool
 }
 
+type CommandRunner interface {
+	Run(ctx context.Context, executable string, args ...string) (Result, error)
+}
+
+func RunServiceStatus(ctx context.Context, runner Runner, name string) (Result, error) {
+	return runner.Run(ctx, ServiceManager, "show", name, "--property=ActiveState,SubState")
+}
+
+func RunServiceMutation(ctx context.Context, runner CommandRunner, action string, name string) (Result, error) {
+	return runner.Run(ctx, ServiceManager, action, name)
+}
+
 func NewReadOnlyRunner() Runner {
 	return Runner{
 		timeout:     DefaultTimeout,
 		outputLimit: DefaultOutputLimit,
 		allowed: map[string]bool{
-			"systemctl": true,
+			ServiceManager: true,
 		},
 	}
 }
@@ -51,7 +64,7 @@ func NewAgentMutationRunner(timeout time.Duration, outputLimit int64) Runner {
 		timeout:     effectiveTimeout(timeout),
 		outputLimit: effectiveOutputLimit(outputLimit),
 		allowed: map[string]bool{
-			"systemctl": true,
+			ServiceManager: true,
 		},
 	}
 }

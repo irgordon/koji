@@ -3,7 +3,6 @@ package system
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -11,7 +10,7 @@ import (
 )
 
 func TestGetServiceStatusMapsCommandFailure(t *testing.T) {
-	runner := command.NewTestRunner(time.Second, 1024, []string{"systemctl"})
+	runner := command.NewTestRunner(time.Second, 1024, []string{command.ServiceManager})
 
 	_, err := GetServiceStatusWithRunner(context.Background(), "ssh.service", runner)
 	if !errors.Is(err, command.ErrCommandFailed) {
@@ -34,7 +33,7 @@ func TestParseServiceStatus(t *testing.T) {
 }
 
 func TestGetServiceStatusPreservesNameValidation(t *testing.T) {
-	runner := command.NewTestRunner(time.Second, 1024, []string{filepath.Base("systemctl")})
+	runner := command.NewTestRunner(time.Second, 1024, []string{command.ServiceManager})
 
 	_, err := GetServiceStatusWithRunner(context.Background(), "../bad", runner)
 	if err == nil {
