@@ -53,7 +53,7 @@ Logout continues to set `revoked_at`. A cleanup method removes expired and revok
 ```text
 npm run build
 gofmt
-GOCACHE=/tmp/koji-go-cache go test ./...
+go test ./....
 ```
 
 ## Changelog

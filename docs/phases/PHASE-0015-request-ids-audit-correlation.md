@@ -45,7 +45,7 @@ Phase 15 adds request ID middleware around the HTTP stack. A valid bounded inbou
 ```text
 npm run build
 gofmt
-GOCACHE=/tmp/koji-go-cache go test ./...
+go test ./....
 ```
 
 ## Changelog

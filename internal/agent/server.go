@@ -123,6 +123,9 @@ func validateSocketParent(socketPath string) error {
 	if !info.IsDir() {
 		return fmt.Errorf("agent socket parent is not a directory")
 	}
+	if !hasAllowedSocketParentOwner(info) {
+		return fmt.Errorf("agent socket parent has invalid ownership")
+	}
 	if isUnsafeWorldWritableParent(info) {
 		return fmt.Errorf("agent socket parent is world-writable without sticky root ownership")
 	}

@@ -49,7 +49,7 @@ Service control remains agent-bound. The default agent client still reports unav
 
 ```text
 gofmt -w internal/caps internal/audit internal/http internal/db
-GOCACHE=/tmp/koji-go-cache go test ./...
+go test ./....
 rg -n "systemctl|exec\.Command" internal/http
 ```
 

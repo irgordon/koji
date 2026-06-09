@@ -43,6 +43,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Daemon-owned job worker skeleton for approved service-control jobs.
 - Agent-side service mutation guardrails with disabled-by-default mutation, independent allowlist validation, bounded command runner integration, and normalized response codes.
 - Controlled agent service mutation enablement through the guarded executor and platform command runner.
+- Runtime packaging layout with systemd units, example configs, staging install target, and deployment filesystem paths.
 
 ### Changed
 
@@ -64,6 +65,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Queued jobs now require an explicit approval or rejection transition before any future execution path can consume them.
 - Approved jobs can be claimed by the worker as `running` and then marked `completed` or `failed` from normalized agent outcomes.
 - Agent service-control RPC now returns `mutation_disabled` by default and maps agent execution outcomes to safe reason codes.
+- Build and install targets now separate frontend assets, Go binaries, configuration examples, and systemd unit files into package-oriented paths.
 
 ### Removed
 

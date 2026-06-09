@@ -379,10 +379,10 @@ func applyConfigField(cfg *Config, key string, value string) error {
 			return fmt.Errorf("invalid session_ttl value")
 		}
 		cfg.SessionTTL = duration
-	case "session_idle_timeout":
+	case "session_idle_timeout", "session_idle_ttl":
 		duration, err := time.ParseDuration(value)
 		if err != nil {
-			return fmt.Errorf("invalid session_idle_timeout value")
+			return fmt.Errorf("invalid session idle timeout value")
 		}
 		cfg.SessionIdleTTL = duration
 	case "service_allowlist":

@@ -52,7 +52,7 @@ Production responses now include browser security headers. JSON response helpers
 ```text
 npm run build
 gofmt
-GOCACHE=/tmp/koji-go-cache go test ./...
+go test ./....
 ```
 
 ## Changelog

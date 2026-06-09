@@ -56,7 +56,7 @@ The Vite build writes to `../dist`, matching the backend static serving contract
 npm install
 npm run build
 gofmt
-GOCACHE=/tmp/koji-go-cache go test ./...
+go test ./....
 ```
 
 ## Changelog

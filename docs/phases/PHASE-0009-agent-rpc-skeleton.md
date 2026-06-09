@@ -52,7 +52,7 @@ The HTTP service-control handler continues to audit denied, rejected, unavailabl
 
 ```text
 gofmt
-GOCACHE=/tmp/koji-go-cache go test ./...
+go test ./....
 rg -n "systemctl|exec\.Command" internal/http internal/agent
 ```
 

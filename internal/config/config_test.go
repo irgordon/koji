@@ -127,6 +127,18 @@ func TestLoadConfigAppliesSessionDurations(t *testing.T) {
 	}
 }
 
+func TestLoadConfigAppliesSessionIdleTTLAlias(t *testing.T) {
+	path := writeTestConfig(t, "session_idle_ttl: 25m\n")
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("expected valid config: %v", err)
+	}
+	if cfg.SessionIdleTTL.String() != "25m0s" {
+		t.Fatalf("unexpected session idle timeout %s", cfg.SessionIdleTTL)
+	}
+}
+
 func TestLoadConfigRejectsIdleTimeoutLongerThanSessionTTL(t *testing.T) {
 	path := writeTestConfig(t, "session_ttl: 30m\nsession_idle_timeout: 1h\n")
 

@@ -40,7 +40,7 @@ Sessions are stored in SQLite. Bootstrap is available only before the first user
 
 ```text
 gofmt
-GOCACHE=/tmp/koji-go-cache go test ./...
+go test ./....
 rg -n "systemctl|exec\.Command" internal/http
 ```
 

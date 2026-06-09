@@ -154,7 +154,7 @@ Required invariants:
 - No shell command is constructed from user input.
 - Direct command execution is owned by `internal/platform/command`.
 - External commands use explicit executable and argument arrays.
-- Inputs are validated before reaching an adapter.
+- Inputs are validated before reaching a system integration layer.
 - Command timeouts are required.
 - Command output is bounded.
 - Command executable names are allowlisted.

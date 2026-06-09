@@ -399,7 +399,7 @@ Required security properties:
 - External process execution uses argument arrays, not shell strings.
 - External command execution is centralized in `internal/platform/command`.
 - Command execution has timeouts, stdout/stderr byte limits, and executable allowlists.
-- User input is allowlisted before it reaches OS adapters.
+- User input is allowlisted before it reaches OS integration layers.
 
 Session lifecycle rules:
 

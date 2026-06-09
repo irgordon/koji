@@ -52,7 +52,7 @@ The services API lists only allowlisted units. Service-control intent validates 
 ```text
 npm run build
 gofmt
-GOCACHE=/tmp/koji-go-cache go test ./...
+go test ./....
 rg -n "systemctl|exec\.Command|CommandContext" internal/http internal/agent
 ```
 

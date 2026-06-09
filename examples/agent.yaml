@@ -1,0 +1,9 @@
+agent_socket_path: /run/koji/agent.sock
+
+agent_mutation_enabled: false
+
+agent_service_allowlist:
+  - nginx.service
+
+agent_command_timeout: 15s
+agent_command_output_limit: 65536

@@ -56,7 +56,7 @@ Overview presents CPU, memory, disk, uptime, health, and readiness. Services sho
 ```text
 npm run build
 gofmt
-GOCACHE=/tmp/koji-go-cache go test ./...
+go test ./....
 ```
 
 ## Changelog

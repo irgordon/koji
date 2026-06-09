@@ -59,7 +59,7 @@ The collector may read process metadata, but the HTTP layer applies a response p
 ```text
 npm run build
 gofmt
-GOCACHE=/tmp/koji-go-cache go test ./...
+go test ./....
 ```
 
 ## Changelog

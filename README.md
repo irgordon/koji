@@ -36,16 +36,17 @@ The agent is the only privileged execution surface.
 
 ## Installation
 
-Installation packaging is not published yet.
+Packaged releases are not published yet, but the repository includes a staging install layout for Linux packaging work.
 
-For local development, build and test from the repository:
+For local development, build, test, and stage an install tree from the repository:
 
 ```sh
 make test
-make web
+make build
+make install
 ```
 
-Additional deployment instructions will be added as Koji moves toward packaged releases.
+The install target writes to `build/rootfs/` by default, including binaries, static assets, example configuration, and systemd units.
 
 ## License
 

@@ -1,0 +1,29 @@
+[Unit]
+Description=Koji Agent
+After=network.target
+
+[Service]
+Type=simple
+
+User=koji
+Group=koji
+
+ExecStart=/usr/bin/koji-agent -config /etc/koji/agent.yaml
+
+Restart=on-failure
+RestartSec=5
+
+WorkingDirectory=/
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+LockPersonality=true
+
+RuntimeDirectory=koji
+ReadWritePaths=/run/koji
+
+[Install]
+WantedBy=multi-user.target

@@ -65,7 +65,7 @@ Both require `jobs.read` and emit `job.viewed` audit records.
 ```text
 npm run build
 gofmt
-GOCACHE=/tmp/koji-go-cache go test ./...
+go test ./....
 ```
 
 ## Changelog

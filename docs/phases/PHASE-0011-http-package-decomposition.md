@@ -51,7 +51,7 @@ Shared dependencies remain explicit through `routeDependencies` and `protectedHa
 
 ```text
 gofmt
-GOCACHE=/tmp/koji-go-cache go test ./...
+go test ./....
 rg -n "exec\.Command|CommandContext" internal/http internal/agent internal/system
 rg -n "systemctl" internal/http internal/agent
 ```

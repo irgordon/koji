@@ -88,7 +88,7 @@ accept unsanitized user input
 
 ## 7. External Commands
 
-External command use must be rare and isolated to system adapter packages.
+External command use must be rare and isolated to system integration packages.
 
 Requirements:
 

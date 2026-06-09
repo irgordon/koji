@@ -348,7 +348,7 @@ A reviewer should reject code that:
 - Adds hidden privileged behavior.
 - Adds broad abstractions without need.
 - Expands the trusted computing base without justification.
-- Uses shell execution where an adapter should exist.
+- Uses shell execution where a system integration layer should exist.
 - Adds unaudited privileged mutation.
 - Makes the UI authoritative.
 - Silently ignores errors.

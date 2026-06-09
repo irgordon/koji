@@ -1,0 +1,11 @@
+port: 8080
+
+database_path: /var/lib/koji/koji.db
+
+static_asset_dir: /usr/share/koji/dist
+
+session_ttl: 12h
+session_idle_ttl: 30m
+
+service_allowlist:
+  - nginx.service

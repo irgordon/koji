@@ -27,7 +27,7 @@ This phase does not weaken auth, capability, audit, or agent boundaries.
 - No direct command execution in `internal/http`.
 - No direct command execution in `internal/agent`.
 - No service mutation.
-- No unbounded stdout or stderr capture.
+- No unbounded stdout or stderr collection.
 
 ## Design Summary
 
@@ -49,7 +49,7 @@ Read-only service status now calls the platform runner for `systemctl show` and 
 
 ```text
 gofmt
-GOCACHE=/tmp/koji-go-cache go test ./...
+go test ./....
 rg -n "exec\.Command|CommandContext" internal/http internal/agent internal/system
 ```
 

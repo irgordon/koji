@@ -56,7 +56,7 @@ The frontend Activity page fetches this endpoint only when the Activity view is 
 ```text
 npm run build
 gofmt
-GOCACHE=/tmp/koji-go-cache go test ./...
+go test ./....
 ```
 
 ## Changelog

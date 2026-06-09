@@ -53,7 +53,7 @@ Readiness returns `fail` when the database or migrations are unavailable. Agent 
 ```text
 npm run build
 gofmt
-GOCACHE=/tmp/koji-go-cache go test ./...
+go test ./....
 ```
 
 ## Changelog
