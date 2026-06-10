@@ -1,0 +1,941 @@
+openapi: "3.1.0"
+info:
+  title: "Koji API"
+  description: "Governed Linux control plane API"
+  version: "v0.1.3"
+servers:
+  - 
+    url: "/"
+    description: "Koji daemon"
+tags:
+  - 
+    name: "Health"
+  - 
+    name: "Authentication"
+  - 
+    name: "System"
+  - 
+    name: "Services"
+  - 
+    name: "Processes"
+  - 
+    name: "Activity"
+  - 
+    name: "Observability"
+  - 
+    name: "Jobs"
+paths:
+  "/healthz":
+    get:
+      tags:
+        - "Health"
+      summary: "Liveness"
+      description: "Returns minimal process liveness without protected host telemetry."
+      x-koji-auth-required: false
+      x-koji-capability: "public"
+      x-koji-errors:
+        - "unexpected_response"
+      responses:
+        200:
+          "$ref": "#/components/responses/HealthOK"
+  "/readyz":
+    get:
+      tags:
+        - "Health"
+      summary: "Readiness"
+      description: "Reports DB, migration, and agent dependency state without protected host telemetry."
+      x-koji-auth-required: false
+      x-koji-capability: "public"
+      x-koji-errors:
+        - "unexpected_response"
+      responses:
+        200:
+          "$ref": "#/components/responses/ReadinessOK"
+        503:
+          "$ref": "#/components/responses/Error"
+  "/api/bootstrap":
+    post:
+      tags:
+        - "Authentication"
+      summary: "Bootstrap first user"
+      description: "Creates the first local user only while no users exist."
+      x-koji-auth-required: false
+      x-koji-capability: "public-until-first-user"
+      x-koji-csrf-required: false
+      x-koji-errors:
+        - "validation_error"
+        - "job_conflict"
+        - "unexpected_response"
+      requestBody:
+        "$ref": "#/components/requestBodies/Credentials"
+      responses:
+        200:
+          "$ref": "#/components/responses/AuthSession"
+        400:
+          "$ref": "#/components/responses/Error"
+        409:
+          "$ref": "#/components/responses/Error"
+  "/api/login":
+    post:
+      tags:
+        - "Authentication"
+      summary: "Login"
+      description: "Authenticates a user and creates a session plus CSRF token."
+      x-koji-auth-required: false
+      x-koji-capability: "public"
+      x-koji-csrf-required: false
+      x-koji-errors:
+        - "unauthenticated"
+        - "validation_error"
+        - "unexpected_response"
+      requestBody:
+        "$ref": "#/components/requestBodies/Credentials"
+      responses:
+        200:
+          "$ref": "#/components/responses/AuthSession"
+        400:
+          "$ref": "#/components/responses/Error"
+        401:
+          "$ref": "#/components/responses/Error"
+  "/api/logout":
+    post:
+      tags:
+        - "Authentication"
+      summary: "Logout"
+      description: "Revokes the current session."
+      security:
+        - 
+          sessionCookie:
+[]
+          csrfToken:
+[]
+      x-koji-auth-required: true
+      x-koji-capability: "authenticated"
+      x-koji-csrf-required: true
+      x-koji-errors:
+        - "unauthenticated"
+        - "csrf_missing_or_invalid"
+        - "session_expired"
+        - "unexpected_response"
+      responses:
+        200:
+          "$ref": "#/components/responses/Status"
+        401:
+          "$ref": "#/components/responses/Error"
+        403:
+          "$ref": "#/components/responses/Error"
+  "/api/session":
+    get:
+      tags:
+        - "Authentication"
+      summary: "Session status"
+      description: "Reports whether the browser has a valid session and whether bootstrap is required."
+      x-koji-auth-required: false
+      x-koji-capability: "public"
+      x-koji-errors:
+        - "unexpected_response"
+      responses:
+        200:
+          "$ref": "#/components/responses/SessionStatus"
+  "/api/v1/metrics":
+    get:
+      tags:
+        - "System"
+      summary: "Host metrics"
+      description: "Returns authorized CPU, memory, and uptime telemetry."
+      security:
+        - 
+          sessionCookie:
+[]
+      x-koji-auth-required: true
+      x-koji-capability: "host.metrics.read"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "session_expired"
+        - "unexpected_response"
+      responses:
+        200:
+          "$ref": "#/components/responses/SystemMetrics"
+        401:
+          "$ref": "#/components/responses/Error"
+        403:
+          "$ref": "#/components/responses/Error"
+        500:
+          "$ref": "#/components/responses/Error"
+  "/api/v1/disk":
+    get:
+      tags:
+        - "System"
+      summary: "Disk metrics"
+      description: "Returns authorized disk usage telemetry."
+      security:
+        - 
+          sessionCookie:
+[]
+      x-koji-auth-required: true
+      x-koji-capability: "host.disk.read"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "session_expired"
+        - "unexpected_response"
+      responses:
+        200:
+          "$ref": "#/components/responses/DiskMetrics"
+        401:
+          "$ref": "#/components/responses/Error"
+        403:
+          "$ref": "#/components/responses/Error"
+        500:
+          "$ref": "#/components/responses/Error"
+  "/api/v1/services":
+    get:
+      tags:
+        - "Services"
+      summary: "List allowlisted services"
+      description: "Returns status for services in the daemon allowlist."
+      security:
+        - 
+          sessionCookie:
+[]
+      x-koji-auth-required: true
+      x-koji-capability: "host.services.read"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "session_expired"
+        - "unexpected_response"
+      responses:
+        200:
+          "$ref": "#/components/responses/ServiceList"
+        401:
+          "$ref": "#/components/responses/Error"
+        403:
+          "$ref": "#/components/responses/Error"
+  "/api/services/{name}/{action}":
+    post:
+      tags:
+        - "Services"
+      summary: "Create service-control job"
+      description: "Creates a durable service-control job. The request does not execute systemctl directly."
+      security:
+        - 
+          sessionCookie:
+[]
+          csrfToken:
+[]
+      x-koji-auth-required: true
+      x-koji-capability: "host.services.control"
+      x-koji-csrf-required: true
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "csrf_missing_or_invalid"
+        - "session_expired"
+        - "service_not_allowlisted"
+        - "validation_error"
+        - "unexpected_response"
+      parameters:
+        - 
+          "$ref": "#/components/parameters/ServiceName"
+        - 
+          "$ref": "#/components/parameters/ServiceAction"
+      responses:
+        202:
+          "$ref": "#/components/responses/ServiceControlJob"
+        400:
+          "$ref": "#/components/responses/Error"
+        401:
+          "$ref": "#/components/responses/Error"
+        403:
+          "$ref": "#/components/responses/Error"
+        500:
+          "$ref": "#/components/responses/Error"
+  "/api/v1/processes":
+    get:
+      tags:
+        - "Processes"
+      summary: "List processes"
+      description: "Returns a process list after applying backend visibility policy."
+      security:
+        - 
+          sessionCookie:
+[]
+      x-koji-auth-required: true
+      x-koji-capability: "host.processes.read"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "session_expired"
+        - "unexpected_response"
+      responses:
+        200:
+          "$ref": "#/components/responses/ProcessList"
+        401:
+          "$ref": "#/components/responses/Error"
+        403:
+          "$ref": "#/components/responses/Error"
+        500:
+          "$ref": "#/components/responses/Error"
+  "/api/activity":
+    get:
+      tags:
+        - "Activity"
+      summary: "Recent activity"
+      description: "Returns normalized recent audit activity."
+      security:
+        - 
+          sessionCookie:
+[]
+      x-koji-auth-required: true
+      x-koji-capability: "audit.events.read"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "session_expired"
+        - "unexpected_response"
+      responses:
+        200:
+          "$ref": "#/components/responses/Activity"
+        401:
+          "$ref": "#/components/responses/Error"
+        403:
+          "$ref": "#/components/responses/Error"
+        500:
+          "$ref": "#/components/responses/Error"
+  "/api/observability/metrics":
+    get:
+      tags:
+        - "Observability"
+      summary: "Control-plane metrics"
+      description: "Returns governed Koji control-plane counters and job status aggregates."
+      security:
+        - 
+          sessionCookie:
+[]
+      x-koji-auth-required: true
+      x-koji-capability: "observability.metrics.read"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "session_expired"
+        - "unexpected_response"
+      responses:
+        200:
+          "$ref": "#/components/responses/ObservabilityMetrics"
+        401:
+          "$ref": "#/components/responses/Error"
+        403:
+          "$ref": "#/components/responses/Error"
+        500:
+          "$ref": "#/components/responses/Error"
+  "/api/jobs":
+    get:
+      tags:
+        - "Jobs"
+      summary: "List jobs"
+      description: "Returns recent durable service-control jobs."
+      security:
+        - 
+          sessionCookie:
+[]
+      x-koji-auth-required: true
+      x-koji-capability: "jobs.read"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "session_expired"
+        - "unexpected_response"
+      responses:
+        200:
+          "$ref": "#/components/responses/JobList"
+        401:
+          "$ref": "#/components/responses/Error"
+        403:
+          "$ref": "#/components/responses/Error"
+        500:
+          "$ref": "#/components/responses/Error"
+  "/api/jobs/{id}":
+    get:
+      tags:
+        - "Jobs"
+      summary: "Read job"
+      description: "Returns a single durable job by ID."
+      security:
+        - 
+          sessionCookie:
+[]
+      x-koji-auth-required: true
+      x-koji-capability: "jobs.read"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "session_expired"
+        - "job_not_found"
+        - "unexpected_response"
+      parameters:
+        - 
+          "$ref": "#/components/parameters/JobID"
+      responses:
+        200:
+          "$ref": "#/components/responses/Job"
+        401:
+          "$ref": "#/components/responses/Error"
+        403:
+          "$ref": "#/components/responses/Error"
+        404:
+          "$ref": "#/components/responses/Error"
+        500:
+          "$ref": "#/components/responses/Error"
+  "/api/jobs/{id}/approve":
+    post:
+      tags:
+        - "Jobs"
+      summary: "Approve job"
+      description: "Moves a queued job to approved."
+      security:
+        - 
+          sessionCookie:
+[]
+          csrfToken:
+[]
+      x-koji-auth-required: true
+      x-koji-capability: "jobs.approve"
+      x-koji-csrf-required: true
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "csrf_missing_or_invalid"
+        - "session_expired"
+        - "job_not_found"
+        - "job_conflict"
+        - "validation_error"
+        - "unexpected_response"
+      parameters:
+        - 
+          "$ref": "#/components/parameters/JobID"
+      requestBody:
+        "$ref": "#/components/requestBodies/JobDecision"
+      responses:
+        200:
+          "$ref": "#/components/responses/Job"
+        400:
+          "$ref": "#/components/responses/Error"
+        401:
+          "$ref": "#/components/responses/Error"
+        403:
+          "$ref": "#/components/responses/Error"
+        404:
+          "$ref": "#/components/responses/Error"
+        409:
+          "$ref": "#/components/responses/Error"
+        500:
+          "$ref": "#/components/responses/Error"
+  "/api/jobs/{id}/reject":
+    post:
+      tags:
+        - "Jobs"
+      summary: "Reject job"
+      description: "Moves a queued job to rejected."
+      security:
+        - 
+          sessionCookie:
+[]
+          csrfToken:
+[]
+      x-koji-auth-required: true
+      x-koji-capability: "jobs.approve"
+      x-koji-csrf-required: true
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "csrf_missing_or_invalid"
+        - "session_expired"
+        - "job_not_found"
+        - "job_conflict"
+        - "validation_error"
+        - "unexpected_response"
+      parameters:
+        - 
+          "$ref": "#/components/parameters/JobID"
+      requestBody:
+        "$ref": "#/components/requestBodies/JobDecision"
+      responses:
+        200:
+          "$ref": "#/components/responses/Job"
+        400:
+          "$ref": "#/components/responses/Error"
+        401:
+          "$ref": "#/components/responses/Error"
+        403:
+          "$ref": "#/components/responses/Error"
+        404:
+          "$ref": "#/components/responses/Error"
+        409:
+          "$ref": "#/components/responses/Error"
+        500:
+          "$ref": "#/components/responses/Error"
+components:
+  securitySchemes:
+    sessionCookie:
+      type: "apiKey"
+      in: "cookie"
+      name: "koji_session"
+      description: "HttpOnly session cookie issued by login or bootstrap."
+    csrfToken:
+      type: "apiKey"
+      in: "header"
+      name: "X-CSRF-Token"
+      description: "CSRF token required for state-changing authenticated requests."
+  parameters:
+    ServiceName:
+      name: "name"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        pattern: "^[A-Za-z0-9_.@-]+\\.service$"
+    ServiceAction:
+      name: "action"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        enum:
+          - "start"
+          - "stop"
+          - "restart"
+    JobID:
+      name: "id"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+  requestBodies:
+    Credentials:
+      required: true
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/CredentialRequest"
+    JobDecision:
+      required: false
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/JobDecisionRequest"
+  responses:
+    HealthOK:
+      description: "Health response"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/HealthResponse"
+    ReadinessOK:
+      description: "Readiness response"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/HealthResponse"
+    AuthSession:
+      description: "Authenticated session response"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/AuthSessionResponse"
+    SessionStatus:
+      description: "Session status response"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/SessionStatusResponse"
+    Status:
+      description: "Status response"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/StatusResponse"
+    SystemMetrics:
+      description: "System metrics response"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/SystemMetrics"
+    DiskMetrics:
+      description: "Disk metrics response"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/DiskMetrics"
+    ServiceList:
+      description: "Service list response"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ServiceListResponse"
+    ServiceControlJob:
+      description: "Service-control job response"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ServiceControlJobResponse"
+    ProcessList:
+      description: "Process list response"
+      content:
+        "application/json":
+          schema:
+            type: "array"
+            items:
+              "$ref": "#/components/schemas/ProcessInfo"
+    Activity:
+      description: "Activity response"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ActivityResponse"
+    ObservabilityMetrics:
+      description: "Observability metrics response"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ObservabilityMetrics"
+    JobList:
+      description: "Job list response"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/JobListResponse"
+    Job:
+      description: "Job response"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/Job"
+    Error:
+      description: "Safe error response"
+      headers:
+        X-Request-ID:
+          description: "Request correlation ID"
+          schema:
+            type: "string"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+  schemas:
+    CredentialRequest:
+      type: "object"
+      required:
+        - "username"
+        - "password"
+      properties:
+        username:
+          type: "string"
+        password:
+          type: "string"
+          format: "password"
+    AuthSessionResponse:
+      type: "object"
+      required:
+        - "authenticated"
+        - "username"
+        - "csrfToken"
+      properties:
+        authenticated:
+          type: "boolean"
+        username:
+          type: "string"
+        csrfToken:
+          type: "string"
+    SessionStatusResponse:
+      type: "object"
+      required:
+        - "authenticated"
+        - "bootstrapRequired"
+      properties:
+        authenticated:
+          type: "boolean"
+        username:
+          type: "string"
+        bootstrapRequired:
+          type: "boolean"
+    StatusResponse:
+      type: "object"
+      required:
+        - "status"
+      properties:
+        status:
+          type: "string"
+    HealthResponse:
+      type: "object"
+      required:
+        - "status"
+        - "checks"
+      properties:
+        status:
+          "$ref": "#/components/schemas/HealthStatus"
+        checks:
+          type: "object"
+          additionalProperties:
+            "$ref": "#/components/schemas/HealthCheck"
+    HealthCheck:
+      type: "object"
+      required:
+        - "status"
+      properties:
+        status:
+          "$ref": "#/components/schemas/HealthStatus"
+    HealthStatus:
+      type: "string"
+      enum:
+        - "ok"
+        - "degraded"
+        - "fail"
+    SystemMetrics:
+      type: "object"
+      required:
+        - "cpuUsage"
+        - "memTotal"
+        - "memAvailable"
+        - "memUsed"
+        - "memUsagePct"
+        - "uptime"
+      properties:
+        cpuUsage:
+          type: "number"
+        memTotal:
+          type: "number"
+        memAvailable:
+          type: "number"
+        memUsed:
+          type: "number"
+        memUsagePct:
+          type: "number"
+        uptime:
+          type: "number"
+    DiskMetrics:
+      type: "object"
+      required:
+        - "path"
+        - "totalBytes"
+        - "freeBytes"
+        - "usedBytes"
+        - "usagePct"
+      properties:
+        path:
+          type: "string"
+        totalBytes:
+          type: "number"
+        freeBytes:
+          type: "number"
+        usedBytes:
+          type: "number"
+        usagePct:
+          type: "number"
+    ServiceStatus:
+      type: "object"
+      required:
+        - "name"
+        - "active"
+        - "subState"
+      properties:
+        name:
+          type: "string"
+        active:
+          type: "boolean"
+        subState:
+          type: "string"
+    ServiceListResponse:
+      type: "object"
+      required:
+        - "services"
+      properties:
+        services:
+          type: "array"
+          items:
+            "$ref": "#/components/schemas/ServiceStatus"
+    ServiceControlJobResponse:
+      type: "object"
+      required:
+        - "jobId"
+        - "status"
+      properties:
+        jobId:
+          type: "string"
+        status:
+          "$ref": "#/components/schemas/JobStatus"
+    ProcessInfo:
+      type: "object"
+      required:
+        - "pid"
+        - "name"
+        - "state"
+      properties:
+        pid:
+          type: "integer"
+        name:
+          type: "string"
+        state:
+          type: "string"
+        uid:
+          type: "integer"
+        ppid:
+          type: "integer"
+        cpuUser:
+          type: "number"
+        cpuSystem:
+          type: "number"
+        rss:
+          type: "number"
+        memoryPct:
+          type: "number"
+        commandLine:
+          type: "string"
+    ActivityEvent:
+      type: "object"
+      required:
+        - "timestamp"
+        - "action"
+        - "target"
+        - "outcome"
+        - "reason_code"
+        - "request_id"
+      properties:
+        timestamp:
+          type: "string"
+          format: "date-time"
+        action:
+          type: "string"
+        target:
+          type: "string"
+        outcome:
+          type: "string"
+        reason_code:
+          type: "string"
+        request_id:
+          type: "string"
+    ActivityResponse:
+      type: "object"
+      required:
+        - "events"
+      properties:
+        events:
+          type: "array"
+          items:
+            "$ref": "#/components/schemas/ActivityEvent"
+    ObservabilityMetrics:
+      type: "object"
+      required:
+        - "counters"
+        - "jobs_by_status"
+      properties:
+        counters:
+          type: "object"
+          additionalProperties:
+            type: "integer"
+        jobs_by_status:
+          type: "object"
+          additionalProperties:
+            type: "integer"
+    JobStatus:
+      type: "string"
+      enum:
+        - "queued"
+        - "approved"
+        - "rejected"
+        - "running"
+        - "completed"
+        - "failed"
+        - "not_implemented"
+    Job:
+      type: "object"
+      required:
+        - "id"
+        - "created_at"
+        - "action"
+        - "target"
+        - "status"
+        - "status_reason"
+        - "request_id"
+        - "decision_reason"
+      properties:
+        id:
+          type: "string"
+        created_at:
+          type: "string"
+          format: "date-time"
+        created_by:
+          type: "integer"
+        action:
+          type: "string"
+        target:
+          type: "string"
+        status:
+          "$ref": "#/components/schemas/JobStatus"
+        status_reason:
+          type: "string"
+        request_id:
+          type: "string"
+        approved_by:
+          type: "integer"
+        approved_at:
+          type: "string"
+          format: "date-time"
+        rejected_by:
+          type: "integer"
+        rejected_at:
+          type: "string"
+          format: "date-time"
+        decision_reason:
+          type: "string"
+        started_at:
+          type: "string"
+          format: "date-time"
+    JobListResponse:
+      type: "object"
+      required:
+        - "jobs"
+      properties:
+        jobs:
+          type: "array"
+          items:
+            "$ref": "#/components/schemas/Job"
+    JobDecisionRequest:
+      type: "object"
+      properties:
+        reason:
+          type: "string"
+          maxLength: 512
+    ErrorResponse:
+      type: "object"
+      required:
+        - "error"
+      properties:
+        error:
+          type: "string"
+          description: "Safe server error text returned by current API responses."
+        code:
+          "$ref": "#/components/schemas/ErrorCode"
+        message:
+          type: "string"
+          description: "Plain-language client normalized message when available."
+        request_id:
+          type: "string"
+          description: "Request correlation ID when included in a response body. Current API also returns X-Request-ID."
+    ErrorCode:
+      type: "string"
+      enum:
+        - "unauthenticated"
+        - "forbidden"
+        - "csrf_missing_or_invalid"
+        - "session_expired"
+        - "agent_unavailable"
+        - "agent_not_implemented"
+        - "mutation_disabled"
+        - "service_not_allowlisted"
+        - "validation_error"
+        - "job_not_found"
+        - "job_conflict"
+        - "network_error"
+        - "unexpected_response"

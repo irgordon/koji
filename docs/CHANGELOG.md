@@ -54,6 +54,8 @@ This project follows a forward-only operational style. Database schema changes r
 - Frontend Vitest/jsdom test harness with Testing Library coverage for UI feedback primitives, API error normalization, Jobs, Activity, and observability cards.
 - Structured `docs/wiki` documentation portal for architecture, security, operations, user guide, developer guide, and references.
 - Documentation validation script for wiki structure, Home links, stale terminology, and architecture diagrams.
+- OpenAPI 3.1 contract under `docs/api` with generated YAML, endpoint docs, error docs, and wiki API reference.
+- OpenAPI generation and validation scripts with route coverage and capability metadata checks.
 
 ### Changed
 
@@ -84,6 +86,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Responsive layout, focus states, touch targets, tooltips, and table controls are improved for mobile, tablet, and desktop widths.
 - Release workflow now runs frontend tests before the frontend production build.
 - Documentation is now treated as a first-class subsystem with cross-linked operator, developer, and reviewer guidance.
+- Release workflow now validates OpenAPI before building frontend assets and release artifacts.
 
 ### Removed
 

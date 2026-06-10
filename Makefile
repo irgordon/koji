@@ -10,7 +10,7 @@ GOOS ?= linux
 GOARCH ?= amd64
 GO_BUILD_FLAGS ?= -trimpath
 
-.PHONY: fmt test build build-web build-kojid build-agent lint install package release checksums verify-release clean
+.PHONY: fmt test build build-web build-kojid build-agent lint openapi verify-openapi install package release checksums verify-release clean
 
 fmt:
 	$(GO) fmt ./...
@@ -20,6 +20,12 @@ test:
 
 lint:
 	$(GO) vet ./...
+
+openapi:
+	node packaging/scripts/generate_openapi_docs.mjs
+
+verify-openapi:
+	packaging/scripts/verify_openapi.sh
 
 build: build-web build-kojid build-agent
 

@@ -41,6 +41,9 @@ jobs:
         working-directory: web
         run: npm run test
 
+      - name: Validate OpenAPI
+        run: make verify-openapi
+
       - name: Build frontend
         working-directory: web
         run: npm run build
