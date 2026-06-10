@@ -136,7 +136,7 @@ func TestServerRefusesToRemoveNonSocketPath(t *testing.T) {
 func shortSocketPath(t *testing.T) string {
 	t.Helper()
 
-	dir, err := os.MkdirTemp("/private/tmp", "koji-agent-*")
+	dir, err := os.MkdirTemp("/tmp", "koji-agent-*")
 	if err != nil {
 		t.Fatalf("create short socket dir: %v", err)
 	}

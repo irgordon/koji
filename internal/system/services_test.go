@@ -3,6 +3,8 @@ package system
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -10,12 +12,25 @@ import (
 )
 
 func TestGetServiceStatusMapsCommandFailure(t *testing.T) {
+	installFailingServiceManager(t)
 	runner := command.NewTestRunner(time.Second, 1024, []string{command.ServiceManager})
 
 	_, err := GetServiceStatusWithRunner(context.Background(), "ssh.service", runner)
 	if !errors.Is(err, command.ErrCommandFailed) {
 		t.Fatalf("expected command failure, got %v", err)
 	}
+}
+
+func installFailingServiceManager(t *testing.T) {
+	t.Helper()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, command.ServiceManager)
+	script := "#!/bin/sh\nexit 7\n"
+	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+		t.Fatalf("write fake service manager: %v", err)
+	}
+	t.Setenv("PATH", dir)
 }
 
 func TestParseServiceStatus(t *testing.T) {
