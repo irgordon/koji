@@ -49,7 +49,7 @@ type NavigationGroup = {
 type JobDecision = 'approve' | 'reject';
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 
-type ToastRequest = {
+export type ToastRequest = {
   type: ToastType;
   title: string;
   message: string;
@@ -75,7 +75,7 @@ function App() {
   );
 }
 
-function ToastProvider({ children }: { children: ReactNode }) {
+export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextID = useRef(1);
 
@@ -102,7 +102,7 @@ function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function useToast(): ToastContextValue {
+export function useToast(): ToastContextValue {
   const value = useContext(ToastContext);
   if (!value) {
     throw new Error('ToastProvider is required');
@@ -455,7 +455,7 @@ function OperationalStatus({ title, response }: { title: string; response: Healt
   );
 }
 
-function ControlPlaneObservability({
+export function ControlPlaneObservability({
   metrics,
   readiness
 }: {
@@ -659,7 +659,7 @@ function ProcessSummaryChart({ processes }: { processes: ProcessInfo[] }) {
   );
 }
 
-function ActivityView({
+export function ActivityView({
   events,
   error,
   updatedAt
@@ -715,7 +715,7 @@ function ActivityView({
   );
 }
 
-function JobsView({
+export function JobsView({
   jobs,
   error,
   updatedAt,
@@ -929,11 +929,13 @@ function ConnectionStatus({ apiError, metrics }: { apiError: string | null; metr
   return <span className="status">Connecting...</span>;
 }
 
-function StatusBadge({ status, label }: { status: HealthStatus; label?: string }) {
+export type UIStatus = HealthStatus | 'running' | 'completed' | 'pending';
+
+export function StatusBadge({ status, label }: { status: UIStatus; label?: string }) {
   return <span className={`status-badge ${status}`}>{statusIcon(status)} {label ?? statusLabel(status)}</span>;
 }
 
-function ErrorBanner({ message, tooltip }: { message: string; tooltip?: string }) {
+export function ErrorBanner({ message, tooltip }: { message: string; tooltip?: string }) {
   return (
     <div className="error-banner" role="alert">
       <span>{message}</span>
@@ -942,7 +944,7 @@ function ErrorBanner({ message, tooltip }: { message: string; tooltip?: string }
   );
 }
 
-function Tooltip({ text }: { text: string }) {
+export function Tooltip({ text }: { text: string }) {
   const id = useTooltipID();
   return (
     <span className="tooltip" tabIndex={0} aria-label="Help" aria-describedby={id}>
@@ -1093,7 +1095,7 @@ function noticePrefix(tone: 'error' | 'info' | 'warning'): string {
   }
 }
 
-function statusIcon(status: HealthStatus): string {
+function statusIcon(status: UIStatus): string {
   switch (status) {
     case 'ok':
       return 'OK';
@@ -1101,10 +1103,16 @@ function statusIcon(status: HealthStatus): string {
       return 'WARN';
     case 'fail':
       return 'FAIL';
+    case 'running':
+      return 'RUN';
+    case 'completed':
+      return 'DONE';
+    case 'pending':
+      return 'WAIT';
   }
 }
 
-function statusLabel(status: HealthStatus): string {
+function statusLabel(status: UIStatus): string {
   switch (status) {
     case 'ok':
       return 'Healthy';
@@ -1112,6 +1120,12 @@ function statusLabel(status: HealthStatus): string {
       return 'Degraded';
     case 'fail':
       return 'Failed';
+    case 'running':
+      return 'Running';
+    case 'completed':
+      return 'Completed';
+    case 'pending':
+      return 'Pending';
   }
 }
 

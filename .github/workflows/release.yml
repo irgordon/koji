@@ -37,7 +37,11 @@ jobs:
       - name: Validate backend
         run: go test ./...
 
-      - name: Validate frontend
+      - name: Test frontend
+        working-directory: web
+        run: npm run test
+
+      - name: Build frontend
         working-directory: web
         run: npm run build
 

@@ -51,6 +51,7 @@ This project follows a forward-only operational style. Database schema changes r
 - `observability.metrics.read` capability and governed `/api/observability/metrics` endpoint.
 - Frontend Overview cards for control-plane health, job flow, worker activity, agent RPC, audit persistence, authentication, and readiness counters.
 - Frontend toast notifications, accessible feedback primitives, last-updated indicators, stale-data notices, and clearer policy/status explanations.
+- Frontend Vitest/jsdom test harness with Testing Library coverage for UI feedback primitives, API error normalization, Jobs, Activity, and observability cards.
 
 ### Changed
 
@@ -79,6 +80,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Audit, job, worker, auth, readiness, and agent RPC paths now update in-process operational counters without external telemetry dependencies.
 - Frontend polling is less aggressive for higher-cost views, with page-local failure feedback instead of full-page blocking.
 - Responsive layout, focus states, touch targets, tooltips, and table controls are improved for mobile, tablet, and desktop widths.
+- Release workflow now runs frontend tests before the frontend production build.
 
 ### Removed
 
