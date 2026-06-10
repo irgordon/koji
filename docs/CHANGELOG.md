@@ -72,6 +72,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Production readiness review for identity, jobs, observability, backup/restore, and page-level operator workflows.
 - Security review and repo-grounded threat model validation.
 - Release candidate checklist and final documentation reconciliation after Phases 38-41.
+- First formal release candidate cut and verification report for `v0.2.0-rc.1`.
 
 ### Changed
 
@@ -103,6 +104,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Release workflow now runs frontend tests before the frontend production build.
 - Documentation is now treated as a first-class subsystem with cross-linked operator, developer, and reviewer guidance.
 - Release workflow now validates OpenAPI before building frontend assets and release artifacts.
+- Release workflow now builds a Docker-based Ubuntu operator smoke image and exercises identity, jobs, activity, observability, and mutation-disabled service-control outcomes before publishing assets.
 - Makefile now includes `backup`, `restore`, and `verify-restore` operational targets.
 - Makefile now includes `pre-upgrade-check` and `verify-upgrade` operational targets.
 - Architecture, invariants, security, configuration, capability, job-state, audit-event, metrics, troubleshooting, README, and SVG mockup docs now reflect the current implementation state.
@@ -111,6 +113,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Administration UI and identity store code are split into smaller responsibility-focused modules.
 - Operator-facing job, agent, service-control, magic-token, capability, and error messages now use clearer action-oriented language.
 - Wiki navigation, phase history, reference pages, and operations guidance now align with release-candidate readiness workflows.
+- Release candidate readiness is now tracked through a dedicated release report and Phase 43 evidence document.
 
 ### Removed
 

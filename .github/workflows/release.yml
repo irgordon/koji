@@ -93,10 +93,31 @@ jobs:
         id: smoke
         run: packaging/scripts/ci_verify_release_outputs.sh build/release
 
+  operator_smoke_release:
+    name: Smoke-test operator workflows
+    runs-on: ubuntu-24.04
+    needs: smoke_test_release
+
+    steps:
+      - name: Checkout smoke scripts
+        uses: actions/checkout@v4
+
+      - name: Download checked artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: koji-release-linux-amd64
+          path: build/release
+
+      - name: Build operator smoke image
+        run: docker build -f packaging/ci/operator-smoke.Dockerfile -t koji-operator-smoke .
+
+      - name: Run operator smoke test
+        run: docker run --rm -v "$PWD:/workspace" -w /workspace koji-operator-smoke packaging/scripts/ci_operator_smoke.sh build/release
+
   publish_release:
     name: Publish release assets
     runs-on: ubuntu-24.04
-    needs: smoke_test_release
+    needs: operator_smoke_release
 
     steps:
       - name: Download checked artifacts
