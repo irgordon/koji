@@ -10,6 +10,7 @@ import (
 	"koji/internal/audit"
 	"koji/internal/caps"
 	"koji/internal/jobs"
+	"koji/internal/observability"
 )
 
 type recordingServiceController struct {
@@ -90,6 +91,8 @@ func exerciseServiceControl(t *testing.T, controller agent.ServiceController, se
 		devMode:          true,
 		serviceAllowlist: newServiceAllowlist([]string{"ssh.service"}),
 		jobs:             jobs.NewStore(fixture.database),
+		metrics:          observability.DefaultRegistry(),
+		database:         fixture.database,
 	}
 	handler.handleServiceControl(response, request)
 	return response

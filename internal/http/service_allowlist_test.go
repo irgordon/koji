@@ -8,6 +8,7 @@ import (
 
 	"koji/internal/auth"
 	"koji/internal/caps"
+	"koji/internal/observability"
 )
 
 func TestAllowlistedServiceStatusAllowed(t *testing.T) {
@@ -51,6 +52,8 @@ func TestDevServiceAllowlistDoesNotGrantCapabilities(t *testing.T) {
 		audit:            fixture.auditStore,
 		devMode:          false,
 		serviceAllowlist: newServiceAllowlist([]string{"ssh.service"}),
+		metrics:          observability.DefaultRegistry(),
+		database:         fixture.database,
 	}.handleServicesList(response, request)
 
 	if response.Code != http.StatusForbidden {

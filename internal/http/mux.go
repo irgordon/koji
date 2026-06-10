@@ -10,6 +10,7 @@ import (
 	"koji/internal/caps"
 	"koji/internal/config"
 	"koji/internal/jobs"
+	"koji/internal/observability"
 	"koji/internal/system"
 )
 
@@ -20,6 +21,8 @@ type protectedHandlers struct {
 	serviceAllowlist serviceAllowlist
 	processPolicy    processVisibilityPolicy
 	jobs             *jobs.Store
+	metrics          *observability.Registry
+	database         *sql.DB
 }
 
 type routeDependencies struct {
@@ -37,7 +40,7 @@ func NewMuxRouter(cfg config.Config, database *sql.DB) (http.Handler, error) {
 }
 
 func NewMuxRouterWithAgent(cfg config.Config, database *sql.DB, agentClient agent.ServiceController) (http.Handler, error) {
-	deps, err := newRouteDependencies(cfg, database, agentClient)
+	deps, err := newRouteDependencies(cfg, database, agentClient, observability.DefaultRegistry())
 	if err != nil {
 		return nil, err
 	}
@@ -50,19 +53,26 @@ func NewMuxRouterWithAgent(cfg config.Config, database *sql.DB, agentClient agen
 	return applyMiddlewareChain(mux, deps.authStore, cfg.DevMode), nil
 }
 
-func newRouteDependencies(cfg config.Config, database *sql.DB, agentClient agent.ServiceController) (routeDependencies, error) {
+func newRouteDependencies(
+	cfg config.Config,
+	database *sql.DB,
+	agentClient agent.ServiceController,
+	metrics *observability.Registry,
+) (routeDependencies, error) {
 	authStore := auth.NewStoreWithPolicy(database, auth.SessionPolicy{
 		TTL:         cfg.SessionTTL,
 		IdleTimeout: cfg.SessionIdleTTL,
 	})
-	auditStore := audit.NewStore(database)
+	auditStore := audit.NewStoreWithMetrics(database, metrics)
 	protected := protectedHandlers{
 		caps:             caps.NewStore(database),
 		audit:            auditStore,
 		devMode:          cfg.DevMode,
 		serviceAllowlist: newServiceAllowlist(cfg.ServiceAllowlist),
 		processPolicy:    newProcessVisibilityPolicy(cfg),
-		jobs:             jobs.NewStore(database),
+		jobs:             jobs.NewStoreWithMetrics(database, metrics),
+		metrics:          metrics,
+		database:         database,
 	}
 
 	probe, err := system.NewProbe()
@@ -78,6 +88,7 @@ func newRouteDependencies(cfg config.Config, database *sql.DB, agentClient agent
 		operational: operationalHandlers{
 			database:        database,
 			agentSocketPath: cfg.AgentSocketPath,
+			metrics:         metrics,
 		},
 		probe:       probe,
 		agentClient: agentClient,

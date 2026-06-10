@@ -8,6 +8,7 @@ import (
 
 	"koji/internal/audit"
 	"koji/internal/auth"
+	"koji/internal/observability"
 )
 
 type credentialRequest struct {
@@ -138,6 +139,7 @@ func bootstrapReason(err error) string {
 }
 
 func recordAuthAudit(store *audit.Store, r *http.Request, userID *int64, action string, outcome string, reason string, devBypass bool) {
+	recordAuthMetric(action, outcome)
 	if store == nil {
 		return
 	}
@@ -151,6 +153,17 @@ func recordAuthAudit(store *audit.Store, r *http.Request, userID *int64, action 
 		RemoteAddr: r.RemoteAddr,
 		DevBypass:  devBypass,
 	})
+}
+
+func recordAuthMetric(action string, outcome string) {
+	if action != audit.ActionLogin {
+		return
+	}
+	if outcome == audit.OutcomeSuccess {
+		observability.DefaultRegistry().Inc(observability.AuthLoginSuccessTotal)
+		return
+	}
+	observability.DefaultRegistry().Inc(observability.AuthLoginFailureTotal)
 }
 
 func writeAuthenticatedSession(w http.ResponseWriter, session auth.Session, devMode bool) {

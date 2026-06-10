@@ -8,6 +8,7 @@ import (
 
 	"koji/internal/agent"
 	"koji/internal/db"
+	"koji/internal/observability"
 )
 
 const (
@@ -20,6 +21,7 @@ const (
 type operationalHandlers struct {
 	database        *sql.DB
 	agentSocketPath string
+	metrics         *observability.Registry
 }
 
 type healthResponse struct {
@@ -44,6 +46,7 @@ func (h operationalHandlers) handleReady(w http.ResponseWriter, r *http.Request)
 	ctx, cancel := context.WithTimeout(r.Context(), readinessTimeout)
 	defer cancel()
 
+	h.metrics.Inc(observability.ReadinessChecksTotal)
 	report := h.readinessReport(ctx)
 	writeJSONValue(w, readinessStatusCode(report.Status), report)
 }
@@ -62,6 +65,7 @@ func (h operationalHandlers) readinessReport(ctx context.Context) healthResponse
 
 func (h operationalHandlers) dbCheck(ctx context.Context) checkResult {
 	if err := h.database.PingContext(ctx); err != nil {
+		h.metrics.Inc(observability.ReadinessDBFailuresTotal)
 		return checkResult{Status: healthStatusFail}
 	}
 	return checkResult{Status: healthStatusOK}
@@ -69,6 +73,7 @@ func (h operationalHandlers) dbCheck(ctx context.Context) checkResult {
 
 func (h operationalHandlers) migrationCheck(ctx context.Context) checkResult {
 	if err := db.CheckMigrationsCurrent(ctx, h.database, db.InitialMigrations()); err != nil {
+		h.metrics.Inc(observability.ReadinessMigrationFailuresTotal)
 		return checkResult{Status: healthStatusFail}
 	}
 	return checkResult{Status: healthStatusOK}
@@ -76,6 +81,7 @@ func (h operationalHandlers) migrationCheck(ctx context.Context) checkResult {
 
 func (h operationalHandlers) agentCheck(ctx context.Context) checkResult {
 	if err := agent.CheckReachable(ctx, h.agentSocketPath); err != nil {
+		h.metrics.Inc(observability.ReadinessAgentDegradedTotal)
 		return checkResult{Status: healthStatusDegraded}
 	}
 	return checkResult{Status: healthStatusOK}

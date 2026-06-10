@@ -8,6 +8,7 @@ import (
 
 	"koji/internal/agent"
 	"koji/internal/audit"
+	"koji/internal/observability"
 )
 
 const (
@@ -26,14 +27,26 @@ type Worker struct {
 	store        *Store
 	agent        agent.ServiceController
 	audit        *audit.Store
+	metrics      *observability.Registry
 	pollInterval time.Duration
 }
 
 func NewWorker(store *Store, agent agent.ServiceController, auditStore *audit.Store, pollInterval time.Duration) *Worker {
+	return NewWorkerWithMetrics(store, agent, auditStore, pollInterval, observability.DefaultRegistry())
+}
+
+func NewWorkerWithMetrics(
+	store *Store,
+	agent agent.ServiceController,
+	auditStore *audit.Store,
+	pollInterval time.Duration,
+	metrics *observability.Registry,
+) *Worker {
 	return &Worker{
 		store:        store,
 		agent:        agent,
 		audit:        auditStore,
+		metrics:      metrics,
 		pollInterval: effectivePollInterval(pollInterval),
 	}
 }
@@ -46,7 +59,9 @@ func (w *Worker) Start(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return nil
 		}
+		w.metrics.Inc(observability.WorkerPollsTotal)
 		if err := w.ProcessOne(ctx); err != nil && !errors.Is(err, ErrNoApprovedJobs) {
+			w.metrics.Inc(observability.WorkerErrorsTotal)
 			return err
 		}
 		select {
@@ -74,8 +89,11 @@ func (w *Worker) executeClaimedJob(ctx context.Context, job Job) error {
 		return w.markFailed(ctx, job.ID, ReasonInvalidJob)
 	}
 	if err := w.agent.ControlService(ctx, request); err != nil {
+		w.metrics.Inc(observability.AgentRPCRequestsTotal)
+		w.metrics.Inc(observability.AgentRPCFailuresTotal)
 		return w.applyAgentError(ctx, job.ID, err)
 	}
+	w.metrics.Inc(observability.AgentRPCRequestsTotal)
 	return w.markCompleted(ctx, job.ID)
 }
 

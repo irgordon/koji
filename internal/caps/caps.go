@@ -18,6 +18,7 @@ const (
 	AuditEventsRead     Capability = "audit.events.read"
 	JobsRead            Capability = "jobs.read"
 	JobsApprove         Capability = "jobs.approve"
+	ObservabilityRead   Capability = "observability.metrics.read"
 )
 
 var ErrCapabilityDenied = errors.New("capability denied")

@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"koji/internal/observability"
 )
 
 const (
@@ -60,11 +62,16 @@ type Job struct {
 }
 
 type Store struct {
-	db *sql.DB
+	db      *sql.DB
+	metrics *observability.Registry
 }
 
 func NewStore(db *sql.DB) *Store {
-	return &Store{db: db}
+	return NewStoreWithMetrics(db, observability.DefaultRegistry())
+}
+
+func NewStoreWithMetrics(db *sql.DB, metrics *observability.Registry) *Store {
+	return &Store{db: db, metrics: metrics}
 }
 
 func (s *Store) Create(ctx context.Context, request CreateRequest) (Job, error) {
@@ -72,6 +79,7 @@ func (s *Store) Create(ctx context.Context, request CreateRequest) (Job, error) 
 	if err := s.insert(ctx, job); err != nil {
 		return Job{}, err
 	}
+	s.metrics.Inc(observability.JobsCreatedTotal)
 	return job, nil
 }
 
@@ -93,24 +101,49 @@ func (s *Store) Get(ctx context.Context, id string) (Job, error) {
 }
 
 func (s *Store) Approve(ctx context.Context, request DecisionRequest) (Job, error) {
-	return s.decide(ctx, request, approvalDecision())
+	job, err := s.decide(ctx, request, approvalDecision())
+	if err != nil {
+		return Job{}, err
+	}
+	s.metrics.Inc(observability.JobsApprovedTotal)
+	return job, nil
 }
 
 func (s *Store) Reject(ctx context.Context, request DecisionRequest) (Job, error) {
-	return s.decide(ctx, request, rejectionDecision())
+	job, err := s.decide(ctx, request, rejectionDecision())
+	if err != nil {
+		return Job{}, err
+	}
+	s.metrics.Inc(observability.JobsRejectedTotal)
+	return job, nil
 }
 
 func (s *Store) ClaimApproved(ctx context.Context) (Job, error) {
 	row := s.db.QueryRowContext(ctx, claimApprovedSQL(), formatTime(time.Now().UTC()), StatusRunning, StatusRunning, StatusApproved)
-	return scanClaimedJob(row)
+	job, err := scanClaimedJob(row)
+	if err != nil {
+		return Job{}, err
+	}
+	s.metrics.Inc(observability.JobsClaimedTotal)
+	return job, nil
 }
 
 func (s *Store) MarkFailed(ctx context.Context, id string, reason string) (Job, error) {
-	return s.finishRunning(ctx, id, StatusFailed, reason)
+	job, err := s.finishRunning(ctx, id, StatusFailed, reason)
+	if err != nil {
+		return Job{}, err
+	}
+	s.metrics.Inc(observability.JobsFailedTotal)
+	return job, nil
 }
 
 func (s *Store) MarkCompleted(ctx context.Context, id string) (Job, error) {
-	return s.finishRunning(ctx, id, StatusCompleted, StatusCompleted)
+	job, err := s.finishRunning(ctx, id, StatusCompleted, StatusCompleted)
+	if err != nil {
+		return Job{}, err
+	}
+	s.metrics.Inc(observability.JobsCompletedTotal)
+	return job, nil
 }
 
 func newQueuedJob(request CreateRequest) Job {

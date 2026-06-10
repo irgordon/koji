@@ -8,6 +8,7 @@ import type {
   JobsResponse,
   JobStatus,
   NormalizedErrorCode,
+  ObservabilityMetrics,
   ProcessInfo,
   ServiceControlAction,
   ServiceControlJobResponse,
@@ -61,6 +62,14 @@ export async function fetchActivity(signal?: AbortSignal): Promise<ActivityEvent
 export async function fetchJobs(signal?: AbortSignal): Promise<JobRecord[]> {
   const response = await requestJSON<JobsResponse>('/api/jobs', { signal }, isJobsResponse);
   return response.jobs;
+}
+
+export async function fetchObservabilityMetrics(signal?: AbortSignal): Promise<ObservabilityMetrics> {
+  return requestJSON<ObservabilityMetrics>(
+    '/api/observability/metrics',
+    { signal },
+    isObservabilityMetrics
+  );
 }
 
 export async function approveJob(id: string, reason: string): Promise<JobRecord> {
@@ -352,6 +361,14 @@ function isJobStatus(value: unknown): value is JobStatus {
 
 function isServiceControlJobResponse(value: unknown): value is ServiceControlJobResponse {
   return isRecord(value) && typeof value.jobId === 'string' && isJobStatus(value.status);
+}
+
+function isObservabilityMetrics(value: unknown): value is ObservabilityMetrics {
+  return isRecord(value) && isNumberRecord(value.counters) && isNumberRecord(value.jobs_by_status);
+}
+
+function isNumberRecord(value: unknown): value is Record<string, number> {
+  return isRecord(value) && Object.values(value).every(isNumber);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

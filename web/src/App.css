@@ -143,6 +143,7 @@ button {
 }
 
 .dashboard-grid,
+.control-plane-grid,
 .services-grid,
 .status-grid,
 .settings-grid {

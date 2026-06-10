@@ -12,6 +12,7 @@ import (
 	"koji/internal/caps"
 	"koji/internal/config"
 	"koji/internal/jobs"
+	"koji/internal/observability"
 )
 
 func TestAuthenticatedUserWithoutCapabilityReceivesForbidden(t *testing.T) {
@@ -147,6 +148,8 @@ func protectedHandler(fixture testFixture, devMode bool) protectedHandlers {
 		serviceAllowlist: newServiceAllowlist([]string{"ssh.service"}),
 		processPolicy:    processVisibilityPolicy{mode: config.ProcessVisibilitySummary, maxProcesses: config.DefaultMaxProcesses},
 		jobs:             jobs.NewStore(fixture.database),
+		metrics:          observability.DefaultRegistry(),
+		database:         fixture.database,
 	}
 }
 

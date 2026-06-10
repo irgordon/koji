@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"koji/internal/observability"
 )
 
 const (
@@ -64,11 +66,16 @@ type ActivityEvent struct {
 }
 
 type Store struct {
-	db *sql.DB
+	db      *sql.DB
+	metrics *observability.Registry
 }
 
 func NewStore(db *sql.DB) *Store {
-	return &Store{db: db}
+	return NewStoreWithMetrics(db, observability.DefaultRegistry())
+}
+
+func NewStoreWithMetrics(db *sql.DB, metrics *observability.Registry) *Store {
+	return &Store{db: db, metrics: metrics}
 }
 
 func (s *Store) Record(ctx context.Context, event Event) error {
@@ -101,8 +108,10 @@ INSERT INTO audit_events (
 		formatTime(time.Now().UTC()),
 	)
 	if err != nil {
+		s.metrics.Inc(observability.AuditWriteFailuresTotal)
 		return fmt.Errorf("record audit event: %w", err)
 	}
+	s.metrics.Inc(observability.AuditWritesTotal)
 	return nil
 }
 

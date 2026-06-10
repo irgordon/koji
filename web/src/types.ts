@@ -98,6 +98,11 @@ export interface JobsResponse {
   jobs: JobRecord[];
 }
 
+export interface ObservabilityMetrics {
+  counters: Record<string, number>;
+  jobs_by_status: Record<string, number>;
+}
+
 export interface ServiceControlJobResponse {
   jobId: string;
   status: JobStatus;

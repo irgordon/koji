@@ -26,6 +26,7 @@ func registerAPIRoutes(mux *http.ServeMux, deps routeDependencies) {
 	mux.HandleFunc("POST /api/services/{name}/{action}", deps.protected.handleServiceControl)
 	mux.HandleFunc("GET /api/v1/processes", deps.protected.handleProcessesList)
 	mux.HandleFunc("GET /api/activity", deps.protected.handleActivityList)
+	mux.HandleFunc("GET /api/observability/metrics", deps.protected.handleObservabilityMetrics)
 	mux.HandleFunc("GET /api/jobs", deps.protected.handleJobsList)
 	mux.HandleFunc("GET /api/jobs/{id}", deps.protected.handleJobDetail)
 	mux.HandleFunc("POST /api/jobs/{id}/approve", deps.protected.handleJobApprove)

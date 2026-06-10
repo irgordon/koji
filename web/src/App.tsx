@@ -9,6 +9,7 @@ import {
   fetchHealth,
   fetchJobs,
   fetchMetrics,
+  fetchObservabilityMetrics,
   fetchProcesses,
   fetchReadiness,
   fetchServices,
@@ -22,6 +23,7 @@ import type {
   HealthStatus,
   JobRecord,
   JobStatus,
+  ObservabilityMetrics,
   ProcessInfo,
   ProcessSort,
   ServiceControlAction,
@@ -51,6 +53,7 @@ function App() {
   const [disk, setDisk] = useState<DiskMetrics | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [readiness, setReadiness] = useState<HealthResponse | null>(null);
+  const [observability, setObservability] = useState<ObservabilityMetrics | null>(null);
   const [services, setServices] = useState<ServiceStatus[]>([]);
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
@@ -66,6 +69,7 @@ function App() {
   usePolling('disk', fetchDisk, setDisk, setApiError, 10000);
   usePolling('health', fetchHealth, setHealth, setApiError, 15000);
   usePolling('readiness', fetchReadiness, setReadiness, setApiError, 15000);
+  usePolling('observability metrics', fetchObservabilityMetrics, setObservability, setApiError, 7000);
   usePolling('services', fetchServices, setServices, setApiError, 5000);
   usePolling('processes', fetchProcesses, setProcesses, setApiError, 4000);
   usePolling('jobs', fetchJobs, setJobs, setJobsError, 7000, currentView === 'jobs');
@@ -137,7 +141,13 @@ function App() {
           {apiError && <ErrorBanner message={apiError} />}
 
           {currentView === 'overview' && (
-            <Overview metrics={metrics} disk={disk} health={health} readiness={readiness} />
+            <Overview
+              metrics={metrics}
+              disk={disk}
+              health={health}
+              readiness={readiness}
+              observability={observability}
+            />
           )}
           {currentView === 'services' && (
             <ServicesView
@@ -218,12 +228,14 @@ function Overview({
   metrics,
   disk,
   health,
-  readiness
+  readiness,
+  observability
 }: {
   metrics: SystemMetrics | null;
   disk: DiskMetrics | null;
   health: HealthResponse | null;
   readiness: HealthResponse | null;
+  observability: ObservabilityMetrics | null;
 }) {
   return (
     <div className="page-stack">
@@ -262,6 +274,7 @@ function Overview({
         <OperationalStatus title="Health" response={health} />
         <OperationalStatus title="Readiness" response={readiness} />
       </section>
+      <ControlPlaneObservability metrics={observability} readiness={readiness} />
     </div>
   );
 }
@@ -326,6 +339,64 @@ function OperationalStatus({ title, response }: { title: string; response: Healt
         ))}
       </div>
     </div>
+  );
+}
+
+function ControlPlaneObservability({
+  metrics,
+  readiness
+}: {
+  metrics: ObservabilityMetrics | null;
+  readiness: HealthResponse | null;
+}) {
+  if (!metrics) {
+    return <LoadingState label="Loading control-plane metrics" />;
+  }
+  return (
+    <section className="control-plane-grid">
+      <MetricCard
+        title="Job Flow"
+        value={`${counter(metrics, 'jobs_created_total')} created`}
+        detail={jobFlowDetail(metrics)}
+        tooltip="Job counters track durable service-control intent and approval lifecycle events."
+      />
+      <MetricCard
+        title="Worker"
+        value={`${counter(metrics, 'worker_polls_total')} polls`}
+        detail={`${counter(metrics, 'worker_errors_total')} worker errors`}
+        tooltip="Worker metrics show whether approved jobs are being polled and advanced by kojid."
+      >
+        <StatusBadge status={workerStatus(metrics)} label={plainWorkerStatus(metrics)} />
+      </MetricCard>
+      <MetricCard
+        title="Agent RPC"
+        value={`${counter(metrics, 'agent_rpc_requests_total')} requests`}
+        detail={`${counter(metrics, 'agent_rpc_failures_total')} failures`}
+        tooltip="Agent RPC metrics cover kojid calls across the Unix socket boundary."
+      >
+        <StatusBadge status={agentStatus(metrics, readiness)} label={plainAgentStatus(metrics, readiness)} />
+      </MetricCard>
+      <MetricCard
+        title="Audit Writes"
+        value={`${counter(metrics, 'audit_writes_total')} writes`}
+        detail={`${counter(metrics, 'audit_write_failures_total')} failures`}
+        tooltip="Audit metrics show whether governance events are being persisted."
+      >
+        <StatusBadge status={auditStatus(metrics)} label={plainAuditStatus(metrics)} />
+      </MetricCard>
+      <MetricCard
+        title="Authentication"
+        value={`${counter(metrics, 'auth_login_success_total')} successes`}
+        detail={`${counter(metrics, 'auth_login_failure_total')} failed login attempts`}
+        tooltip="Authentication metrics count login outcomes without exposing usernames or session data."
+      />
+      <MetricCard
+        title="Readiness Checks"
+        value={`${counter(metrics, 'readiness_checks_total')} checks`}
+        detail={readinessFailureDetail(metrics)}
+        tooltip="Readiness counters summarize dependency failures without exposing sensitive connection details."
+      />
+    </section>
   );
 }
 
@@ -615,6 +686,55 @@ function JobDecisionControls({
       </button>
     </div>
   );
+}
+
+function counter(metrics: ObservabilityMetrics, name: string): number {
+  return metrics.counters[name] ?? 0;
+}
+
+function statusCount(metrics: ObservabilityMetrics, status: JobStatus): number {
+  return metrics.jobs_by_status[status] ?? 0;
+}
+
+function jobFlowDetail(metrics: ObservabilityMetrics): string {
+  const queued = statusCount(metrics, 'queued');
+  const running = statusCount(metrics, 'running');
+  const failed = statusCount(metrics, 'failed');
+  return `${queued} queued, ${running} running, ${failed} failed`;
+}
+
+function workerStatus(metrics: ObservabilityMetrics): HealthStatus {
+  return counter(metrics, 'worker_errors_total') === 0 ? 'ok' : 'degraded';
+}
+
+function plainWorkerStatus(metrics: ObservabilityMetrics): string {
+  return workerStatus(metrics) === 'ok' ? 'polling' : 'errors seen';
+}
+
+function agentStatus(metrics: ObservabilityMetrics, readiness: HealthResponse | null): HealthStatus {
+  if (readiness?.checks.agent?.status === 'degraded') {
+    return 'degraded';
+  }
+  return counter(metrics, 'agent_rpc_failures_total') === 0 ? 'ok' : 'degraded';
+}
+
+function plainAgentStatus(metrics: ObservabilityMetrics, readiness: HealthResponse | null): string {
+  return agentStatus(metrics, readiness) === 'ok' ? 'reachable' : 'degraded';
+}
+
+function auditStatus(metrics: ObservabilityMetrics): HealthStatus {
+  return counter(metrics, 'audit_write_failures_total') === 0 ? 'ok' : 'fail';
+}
+
+function plainAuditStatus(metrics: ObservabilityMetrics): string {
+  return auditStatus(metrics) === 'ok' ? 'persisting' : 'write failures';
+}
+
+function readinessFailureDetail(metrics: ObservabilityMetrics): string {
+  const dbFailures = counter(metrics, 'readiness_db_failures_total');
+  const migrationFailures = counter(metrics, 'readiness_migration_failures_total');
+  const agentDegraded = counter(metrics, 'readiness_agent_degraded_total');
+  return `${dbFailures} DB failures, ${migrationFailures} migration failures, ${agentDegraded} agent degraded`;
 }
 
 function ConnectionStatus({ apiError, metrics }: { apiError: string | null; metrics: SystemMetrics | null }) {

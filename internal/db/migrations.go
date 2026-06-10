@@ -135,6 +135,13 @@ INSERT INTO capabilities (name, description) VALUES
 ALTER TABLE jobs ADD COLUMN started_at TEXT;
 `,
 		},
+		{
+			Name: "0008_observability_metrics_read_capability",
+			SQL: `
+INSERT INTO capabilities (name, description) VALUES
+	('observability.metrics.read', 'Read control-plane observability metrics');
+`,
+		},
 	}
 }
 
