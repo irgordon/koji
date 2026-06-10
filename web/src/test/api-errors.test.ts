@@ -8,10 +8,10 @@ describe('API error normalization', () => {
     [401, 'Session expired', 'Your session expired. Sign in again before continuing.'],
     [403, 'Capability denied', 'Your account does not have permission for this action.'],
     [403, 'CSRF token required', 'The request security token expired. Refresh and try again.'],
-    [502, 'agent is unavailable: dial unix /run/koji/agent.sock', 'The local Koji agent is unavailable, so privileged service actions cannot run.'],
-    [500, 'agent returned not implemented', 'Service control is not enabled in this build yet.'],
-    [500, 'agent mutation disabled by config', 'Service mutation is disabled by Koji configuration.'],
-    [403, 'Service is not allowlisted', 'That service is not in the configured Koji allowlist.'],
+    [502, 'agent is unavailable: dial unix /run/koji/agent.sock', 'The local agent is not reachable. Approved jobs cannot run until koji-agent is running.'],
+    [500, 'agent returned not implemented', 'The agent does not implement this action yet. The job cannot run on this build.'],
+    [500, 'agent mutation disabled by config', 'Service mutation is disabled in agent configuration. Jobs can be approved, but they will not run until mutation is enabled intentionally.'],
+    [403, 'Service is not allowlisted', 'That service is not in the configured Koji allowlist. Ask an administrator to review the service policy.'],
     [400, 'invalid service name', 'The request was rejected because one or more fields were invalid.']
   ])('maps %s %s to safe text', async (status, backendError, expected) => {
     mockJSONResponse(status, { error: backendError });
@@ -23,7 +23,7 @@ describe('API error normalization', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED 127.0.0.1')));
 
     await expect(fetchMetrics()).rejects.toMatchObject({
-      message: 'Koji is unreachable from the browser right now.'
+      message: 'Koji is unreachable from this browser. Check the server connection and try again.'
     });
   });
 

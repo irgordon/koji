@@ -14,7 +14,7 @@ describe('ControlPlaneObservability', () => {
     expect(screen.getByText('Agent RPC')).toBeInTheDocument();
     expect(screen.getByText('Audit Writes')).toBeInTheDocument();
     expect(screen.getByText('Authentication')).toBeInTheDocument();
-    expect(screen.getByText('OK reachable')).toBeInTheDocument();
+    expect(screen.getByText('OK Agent reachable')).toBeInTheDocument();
   });
 
   it('fails gracefully when metrics are missing', () => {
@@ -26,7 +26,7 @@ describe('ControlPlaneObservability', () => {
   it('marks agent degraded when readiness reports degraded', () => {
     render(<ControlPlaneObservability metrics={metrics()} readiness={readiness('degraded')} />);
 
-    expect(screen.getByText('WARN degraded')).toBeInTheDocument();
+    expect(screen.getByText('WARN Agent unavailable')).toBeInTheDocument();
   });
 });
 

@@ -38,9 +38,9 @@ export function AdminView({ users, error, onRefresh, notify, formatTimestamp }: 
       const user = await createAdminUser(username.trim());
       setUsername('');
       await onRefresh();
-      notify({ type: 'success', title: 'User created', message: `${user.username} can now receive capabilities and a magic token.` });
+      notify({ type: 'success', title: 'User created', message: `${user.username} is ready. Grant only the needed capabilities, then issue a one-time magic token.` });
     } catch (adminError: unknown) {
-      notify({ type: 'error', title: 'User creation failed', message: errorMessage(adminError, 'User creation failed') });
+      notify({ type: 'error', title: 'User creation failed', message: errorMessage(adminError, 'Koji could not create the user. Check the username and your permission.') });
     }
   }
 
@@ -50,7 +50,7 @@ export function AdminView({ users, error, onRefresh, notify, formatTimestamp }: 
       await onRefresh();
       notify(userToggleToast(updated));
     } catch (adminError: unknown) {
-      notify({ type: 'error', title: 'User update failed', message: errorMessage(adminError, 'User update failed') });
+      notify({ type: 'error', title: 'User update failed', message: errorMessage(adminError, 'Koji could not update the user. Check whether this would remove the final administrator.') });
     }
   }
 
@@ -61,7 +61,7 @@ export function AdminView({ users, error, onRefresh, notify, formatTimestamp }: 
       setCapabilities(response);
       setSelectedCapability(firstGrantOption(response));
     } catch (adminError: unknown) {
-      notify({ type: 'error', title: 'Capabilities unavailable', message: errorMessage(adminError, 'Capability lookup failed') });
+      notify({ type: 'error', title: 'Capabilities unavailable', message: errorMessage(adminError, 'Koji could not load capabilities for this user.') });
     }
   }
 
@@ -72,9 +72,9 @@ export function AdminView({ users, error, onRefresh, notify, formatTimestamp }: 
     try {
       const assigned = await grantUserCapability(selectedUser.id, selectedCapability);
       setCapabilities((current) => replaceAssignedCapabilities(current, assigned));
-      notify({ type: 'success', title: 'Capability granted', message: `${selectedCapability} was granted to ${selectedUser.username}.` });
+      notify({ type: 'success', title: 'Capability granted', message: `${selectedCapability} was granted to ${selectedUser.username}. The change is active for future requests.` });
     } catch (adminError: unknown) {
-      notify({ type: 'error', title: 'Grant failed', message: errorMessage(adminError, 'Capability grant failed') });
+      notify({ type: 'error', title: 'Grant failed', message: errorMessage(adminError, 'Koji could not grant that capability.') });
     }
   }
 
@@ -87,7 +87,7 @@ export function AdminView({ users, error, onRefresh, notify, formatTimestamp }: 
       setCapabilities((current) => replaceAssignedCapabilities(current, assigned));
       notify({ type: 'success', title: 'Capability revoked', message: `${capability} was revoked from ${selectedUser.username}.` });
     } catch (adminError: unknown) {
-      notify({ type: 'error', title: 'Revoke failed', message: errorMessage(adminError, 'Capability revoke failed') });
+      notify({ type: 'error', title: 'Revoke failed', message: errorMessage(adminError, 'Koji could not revoke that capability. The final identity administrator is protected.') });
     }
   }
 
@@ -95,9 +95,9 @@ export function AdminView({ users, error, onRefresh, notify, formatTimestamp }: 
     try {
       const token = await issueMagicToken(user.id);
       setIssuedToken({ ...token, username: user.username });
-      notify({ type: 'warning', title: 'Magic token issued', message: 'Copy this token now. Koji will not show it again.' });
+      notify({ type: 'warning', title: 'Magic token issued', message: 'Copy this token now and deliver it through an approved operator channel. Koji will not show it again.' });
     } catch (adminError: unknown) {
-      notify({ type: 'error', title: 'Token issue failed', message: errorMessage(adminError, 'Magic token issue failed') });
+      notify({ type: 'error', title: 'Token issue failed', message: errorMessage(adminError, 'Koji could not issue a token. Enabled users only can receive tokens.') });
     }
   }
 
@@ -160,7 +160,7 @@ function MagicTokenPanel({
         <Tooltip text="Copy this token now. Koji stores only a hash and cannot show the raw token again." />
       </div>
       <code>{issuedToken.token}</code>
-      <p>Expires {formatTimestamp(issuedToken.expiresAt)}</p>
+      <p>Copy this token now. It expires {formatTimestamp(issuedToken.expiresAt)} and cannot be shown again.</p>
     </section>
   );
 }
@@ -205,7 +205,7 @@ function UsersPanel({
                 <td>
                   <div className="job-decision-controls">
                     <button type="button" onClick={() => onCapabilities(user)}>Capabilities</button>
-                    <button type="button" onClick={() => onIssueToken(user)} disabled={user.disabled}>Issue token</button>
+                    <button type="button" onClick={() => onIssueToken(user)} disabled={user.disabled} title={user.disabled ? 'Enable this user before issuing a token.' : 'Issue a one-time sign-in token.'}>Issue token</button>
                     <button type="button" onClick={() => onToggle(user)}>{user.disabled ? 'Enable' : 'Disable'}</button>
                   </div>
                 </td>
@@ -252,7 +252,7 @@ function CapabilitiesPanel({
         {capabilities.map((capability) => (
           <span key={capability} className="capability-chip">
             {capability}
-            <button type="button" onClick={() => onRevoke(capability)}>Revoke</button>
+            <button type="button" onClick={() => onRevoke(capability)} aria-label={`Revoke ${capability}`}>Revoke</button>
           </span>
         ))}
       </div>

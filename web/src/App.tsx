@@ -165,7 +165,7 @@ function AppShell() {
     try {
       const job = await controlService(service, action);
       setApiError(null);
-      setServiceControlNotice(`Job ${job.jobId} queued for ${action} on ${service}.`);
+      setServiceControlNotice(`Job ${job.jobId} was created. ${plainJobAction(action)} on ${service} is waiting for approval.`);
       notify({
         type: 'success',
         title: 'Job created',
@@ -190,8 +190,8 @@ function AppShell() {
         type: 'success',
         title: decision === 'approve' ? 'Job approved' : 'Job rejected',
         message: decision === 'approve'
-          ? 'Koji marked the job approved. The worker can advance it when the agent path is available.'
-          : 'Koji rejected the queued job. It will not advance toward execution.'
+          ? 'Koji marked the job approved. The worker can advance it when the local agent is available.'
+          : 'Koji rejected the job. It will not run.'
       });
     } catch (error: unknown) {
       const message = errorMessage(error, 'Job decision failed');
@@ -504,7 +504,7 @@ export function ControlPlaneObservability({
         title="Agent RPC"
         value={`${counter(metrics, 'agent_rpc_requests_total')} requests`}
         detail={`${counter(metrics, 'agent_rpc_failures_total')} failures`}
-        tooltip="Koji cannot run approved service jobs unless the local agent can be reached. Start or repair koji-agent if this is degraded."
+        tooltip="Koji cannot run approved service jobs unless the local agent can be reached. Start or repair koji-agent if this shows agent unavailable."
       >
         <StatusBadge status={agentStatus(metrics, readiness)} label={plainAgentStatus(metrics, readiness)} />
       </MetricCard>
@@ -757,7 +757,7 @@ export function JobsView({
     <div className="activity-panel">
       <div className="card-heading">
         <h3>Jobs</h3>
-        <Tooltip text="Jobs persist service-control intent. Queued jobs need human approval before the worker can advance them." />
+        <Tooltip text="Jobs persist service-control intent. Jobs waiting for approval need a human decision before the worker can advance them." />
       </div>
       <PanelMeta updatedAt={updatedAt} />
       <div className="table-wrapper">
@@ -820,7 +820,7 @@ function JobDecisionControls({
   return (
     <div className="job-decision-controls">
       <span className="sr-only" id={`decision-help-${job.id}`}>
-        Approval lets the worker advance this job. Rejection stops it from running.
+        Approval lets the worker advance this job when the agent is available. Rejection stops it from running.
       </span>
       <input
         aria-label={`Decision reason for ${job.id}`}
@@ -852,7 +852,7 @@ function jobFlowDetail(metrics: ObservabilityMetrics): string {
   const queued = statusCount(metrics, 'queued');
   const running = statusCount(metrics, 'running');
   const failed = statusCount(metrics, 'failed');
-  return `${queued} queued, ${running} running, ${failed} failed`;
+  return `${queued} waiting for approval, ${running} running, ${failed} failed`;
 }
 
 function workerStatus(metrics: ObservabilityMetrics): HealthStatus {
@@ -871,7 +871,7 @@ function agentStatus(metrics: ObservabilityMetrics, readiness: HealthResponse | 
 }
 
 function plainAgentStatus(metrics: ObservabilityMetrics, readiness: HealthResponse | null): string {
-  return agentStatus(metrics, readiness) === 'ok' ? 'reachable' : 'degraded';
+  return agentStatus(metrics, readiness) === 'ok' ? 'Agent reachable' : 'Agent unavailable';
 }
 
 function auditStatus(metrics: ObservabilityMetrics): HealthStatus {
@@ -886,7 +886,7 @@ function readinessFailureDetail(metrics: ObservabilityMetrics): string {
   const dbFailures = counter(metrics, 'readiness_db_failures_total');
   const migrationFailures = counter(metrics, 'readiness_migration_failures_total');
   const agentDegraded = counter(metrics, 'readiness_agent_degraded_total');
-  return `${dbFailures} DB failures, ${migrationFailures} migration failures, ${agentDegraded} agent degraded`;
+  return `${dbFailures} DB failures, ${migrationFailures} migration failures, ${agentDegraded} agent unavailable events`;
 }
 
 function PanelMeta({ updatedAt }: { updatedAt: Date | null }) {
@@ -1065,7 +1065,7 @@ function viewSubtitle(view: View): string {
     case 'processes':
       return 'Redaction-aware process visibility.';
     case 'jobs':
-      return 'Durable service-control job lifecycle.';
+      return 'Requests waiting for approval, running, or completed.';
     case 'activity':
       return 'Governed audit activity read model.';
     case 'admin':
@@ -1165,7 +1165,22 @@ function plainJobAction(action: string): string {
 }
 
 function plainJobStatus(status: JobStatus): string {
-  return humanizeKey(status);
+  switch (status) {
+    case 'queued':
+      return 'Waiting for approval';
+    case 'approved':
+      return 'Approved, waiting for worker';
+    case 'rejected':
+      return 'Rejected';
+    case 'running':
+      return 'Running';
+    case 'completed':
+      return 'Completed';
+    case 'failed':
+      return 'Failed';
+    case 'not_implemented':
+      return 'Agent not implemented';
+  }
 }
 
 function jobStatusTone(status: JobStatus): HealthStatus {
@@ -1187,7 +1202,22 @@ function decisionSummary(job: JobRecord): string {
   if (job.decision_reason !== '') {
     return plainReason(job.decision_reason);
   }
-  return plainJobStatus(job.status);
+  switch (job.status) {
+    case 'approved':
+      return 'Approved. The worker can advance it when the agent is available.';
+    case 'running':
+      return 'Running through the worker.';
+    case 'not_implemented':
+      return 'The agent does not implement this action yet.';
+    case 'failed':
+      return 'Failed. Review the reason before creating a replacement job.';
+    case 'completed':
+      return 'Completed.';
+    case 'rejected':
+      return 'Rejected. It will not run.';
+    case 'queued':
+      return 'Waiting for approval.';
+  }
 }
 
 function plainAction(action: string): string {

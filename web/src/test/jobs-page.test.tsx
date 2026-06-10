@@ -6,13 +6,13 @@ import type { JobRecord, JobStatus } from '../types';
 
 describe('JobsView', () => {
   it.each([
-    ['queued', 'WARN Queued'],
-    ['approved', 'OK Approved'],
+    ['queued', 'WARN Waiting for approval'],
+    ['approved', 'OK Approved, waiting for worker'],
     ['running', 'WARN Running'],
     ['completed', 'OK Completed'],
     ['failed', 'FAIL Failed'],
     ['rejected', 'FAIL Rejected'],
-    ['not_implemented', 'WARN Not Implemented']
+    ['not_implemented', 'WARN Agent not implemented']
   ] as Array<[JobStatus, string]>)('renders human-readable status for %s', (status, label) => {
     render(<JobsView jobs={[job(status)]} error={null} updatedAt={new Date()} onDecision={vi.fn()} />);
 

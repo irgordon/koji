@@ -278,21 +278,21 @@ function errorText(code: NormalizedErrorCode): string {
     case 'csrf_missing_or_invalid':
       return 'The request security token expired. Refresh and try again.';
     case 'agent_unavailable':
-      return 'The local Koji agent is unavailable, so privileged service actions cannot run.';
+      return 'The local agent is not reachable. Approved jobs cannot run until koji-agent is running.';
     case 'agent_not_implemented':
-      return 'Service control is not enabled in this build yet.';
+      return 'The agent does not implement this action yet. The job cannot run on this build.';
     case 'mutation_disabled':
-      return 'Service mutation is disabled by Koji configuration.';
+      return 'Service mutation is disabled in agent configuration. Jobs can be approved, but they will not run until mutation is enabled intentionally.';
     case 'service_not_allowlisted':
-      return 'That service is not in the configured Koji allowlist.';
+      return 'That service is not in the configured Koji allowlist. Ask an administrator to review the service policy.';
     case 'self_lockout_prevented':
       return 'Koji blocked that change because it would remove the final identity administrator.';
     case 'job_conflict':
-      return 'That job is no longer queued, so it cannot be approved or rejected.';
+      return 'That job is no longer waiting for approval, so it cannot be approved or rejected.';
     case 'validation_error':
       return 'The request was rejected because one or more fields were invalid.';
     case 'network_error':
-      return 'Koji is unreachable from the browser right now.';
+      return 'Koji is unreachable from this browser. Check the server connection and try again.';
     case 'unexpected_response':
       return 'Koji returned an unexpected response.';
     case 'session_expired':

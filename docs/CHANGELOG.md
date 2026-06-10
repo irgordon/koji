@@ -69,6 +69,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Self-lockout prevention for the final active Super Admin and final active identity administrator.
 - Magic token TTL configuration with a secure bounded default.
 - Code quality audit documentation and `packaging/scripts/verify_code_quality.sh`.
+- Production readiness review for identity, jobs, observability, backup/restore, and page-level operator workflows.
 
 ### Changed
 
@@ -106,6 +107,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Documentation validation now requires inventory pages, required diagrams, and non-stale local wiki links.
 - Non-Super Admin users are now denied password login and must use magic tokens.
 - Administration UI and identity store code are split into smaller responsibility-focused modules.
+- Operator-facing job, agent, service-control, magic-token, capability, and error messages now use clearer action-oriented language.
 
 ### Removed
 
