@@ -5,8 +5,12 @@ SYSTEMDUNITDIR ?= $(PREFIX)/lib/systemd/system
 DESTDIR ?= build/rootfs
 GO ?= go
 NPM ?= npm
+RELEASE_DIR ?= build/release
+GOOS ?= linux
+GOARCH ?= amd64
+GO_BUILD_FLAGS ?= -trimpath
 
-.PHONY: fmt test build build-web build-kojid build-agent lint install package clean
+.PHONY: fmt test build build-web build-kojid build-agent lint install package release checksums verify-release clean
 
 fmt:
 	$(GO) fmt ./...
@@ -24,11 +28,11 @@ build-web:
 
 build-kojid:
 	install -d build/bin
-	$(GO) build -o build/bin/kojid ./cmd/kojid
+	$(GO) build $(GO_BUILD_FLAGS) -o build/bin/kojid ./cmd/kojid
 
 build-agent:
 	install -d build/bin
-	$(GO) build -o build/bin/koji-agent ./cmd/koji-agent
+	$(GO) build $(GO_BUILD_FLAGS) -o build/bin/koji-agent ./cmd/koji-agent
 
 install: build
 	install -d $(DESTDIR)$(PREFIX)/bin
@@ -47,5 +51,19 @@ install: build
 
 package: install
 
+release: install
+	rm -rf $(RELEASE_DIR)
+	install -d $(RELEASE_DIR)
+	install -m 0755 build/bin/kojid $(RELEASE_DIR)/kojid-$(GOOS)-$(GOARCH)
+	install -m 0755 build/bin/koji-agent $(RELEASE_DIR)/koji-agent-$(GOOS)-$(GOARCH)
+	tar -czf $(RELEASE_DIR)/koji-rootfs-$(GOOS)-$(GOARCH).tar.gz -C build rootfs
+	$(MAKE) checksums
+
+checksums:
+	packaging/scripts/checksums.sh $(RELEASE_DIR)
+
+verify-release:
+	packaging/scripts/verify_release.sh $(RELEASE_DIR) $(DESTDIR)
+
 clean:
-	rm -rf build/bin build/rootfs
+	rm -rf build/bin build/rootfs $(RELEASE_DIR)

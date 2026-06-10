@@ -48,6 +48,21 @@ make install
 
 The install target writes to `build/rootfs/` by default, including binaries, static assets, example configuration, and systemd units.
 
+## Release
+
+Tagged releases are built by GitHub Actions from a clean checkout. Push a semantic version tag to publish Linux amd64 binaries, a staged rootfs archive, and `SHA256SUMS.txt`:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Verify downloaded release assets with:
+
+```sh
+shasum -a 256 -c SHA256SUMS.txt
+```
+
 ## License
 
 Koji is released under the license included in this repository. See [LICENSE](LICENSE) for details.

@@ -84,6 +84,57 @@ func TestMakefileSeparatesStagingFromRuntimePaths(t *testing.T) {
 	})
 }
 
+func TestMakefileDefinesReleaseTargets(t *testing.T) {
+	makefile := readRepoFile(t, "Makefile")
+	assertContainsAll(t, makefile, []string{
+		"release:",
+		"checksums:",
+		"verify-release:",
+		"koji-rootfs-$(GOOS)-$(GOARCH).tar.gz",
+	})
+	assertContainsAll(t, readPackagingFile(t, filepath.Join("scripts", "checksums.sh")), []string{
+		"SHA256SUMS.txt",
+	})
+}
+
+func TestReleaseWorkflowUsesPinnedToolchains(t *testing.T) {
+	workflow := readRepoFile(t, filepath.Join(".github", "workflows", "release.yml"))
+	assertContainsAll(t, workflow, []string{
+		`- "v*"`,
+		"go-version: \"1.25.0\"",
+		"node-version: \"22.12.0\"",
+		"npm ci",
+		"go test ./...",
+		"make release",
+		"make verify-release",
+		"softprops/action-gh-release@v2",
+	})
+	assertContainsNone(t, workflow, []string{
+		"go-version: latest",
+		"node-version: latest",
+	})
+}
+
+func TestReleaseScriptsValidateChecksumsAndForbiddenPaths(t *testing.T) {
+	checksums := readPackagingFile(t, filepath.Join("scripts", "checksums.sh"))
+	verification := readPackagingFile(t, filepath.Join("scripts", "verify_release.sh"))
+
+	assertContainsAll(t, checksums, []string{
+		"SHA256SUMS.txt",
+		"kojid-linux-amd64",
+		"koji-agent-linux-amd64",
+		"koji-rootfs-linux-amd64.tar.gz",
+	})
+	assertContainsAll(t, verification, []string{
+		"/Users/",
+		"/home/",
+		"Documents/Projects",
+		"usr/share/koji/dist",
+		"usr/lib/systemd/system",
+		"SHA256SUMS.txt",
+	})
+}
+
 func requiredPackagingFiles() []string {
 	return []string{
 		filepath.Join("systemd", "kojid.service"),
@@ -142,6 +193,16 @@ func readPackagingFile(t *testing.T, path string) string {
 	t.Helper()
 
 	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return string(content)
+}
+
+func readRepoFile(t *testing.T, path string) string {
+	t.Helper()
+
+	content, err := os.ReadFile(filepath.Join("..", path))
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}
