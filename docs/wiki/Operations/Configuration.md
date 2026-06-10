@@ -1,10 +1,10 @@
 # Configuration
 
-[Home](../Home.md) | Related: [Configuration Reference](../Reference/Configuration-Reference.md), [Service Allowlists](../Security/Service-Allowlists.md), [Sessions](../Security/Sessions.md)
+[Home](../Home.md) | Related: [Configuration Reference](../Reference/Configuration-Reference.md), [Service Allowlists](../Security/Service-Allowlists.md), [Sessions](../Security/Sessions.md), [Magic Tokens](../Security/Magic-Tokens.md)
 
 ## What Problem This Solves
 
-Configuration makes runtime policy explicit: paths, sessions, allowlists, process visibility, static assets, and agent mutation guardrails.
+Configuration makes runtime policy explicit: paths, sessions, magic-token lifetime, allowlists, process visibility, static assets, and agent mutation guardrails.
 
 ## How It Works
 
@@ -16,7 +16,7 @@ Production requires absolute runtime paths and an explicit service allowlist. Ag
 
 ## What Can Fail
 
-Invalid ports, relative paths, missing production allowlists, invalid service names, or idle timeout greater than session TTL can block startup.
+Invalid ports, relative paths, missing production allowlists, invalid service names, invalid magic-token TTL, or idle timeout greater than session TTL can block startup.
 
 ## How To Diagnose It
 

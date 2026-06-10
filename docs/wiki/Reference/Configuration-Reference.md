@@ -26,6 +26,7 @@ This reference matches `internal/config.Config` and the strict parser in `intern
 | `session_ttl` | `12h` | Yes | Positive duration. | Absolute session lifetime. |
 | `session_idle_ttl` | `30m` | Yes | Positive duration, must not exceed `session_ttl`. | Limits stale authenticated sessions. |
 | `session_idle_timeout` | alias for `session_idle_ttl` | No | Same as `session_idle_ttl`. | Backward-compatible spelling for idle timeout. |
+| `magic_token_ttl` | `15m` | Yes | Positive duration no greater than `1h`. | Bounds passwordless login token lifetime. |
 
 ## Services
 

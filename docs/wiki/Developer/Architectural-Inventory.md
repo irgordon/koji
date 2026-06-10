@@ -2,12 +2,13 @@
 
 [Home](../Home.md) | Related: [Backend Inventory](Backend-Inventory.md), [Frontend Inventory](Frontend-Inventory.md), [Phase History](Phase-History.md)
 
-This inventory records the major Koji subsystems after Phase 36. It is architectural, not exhaustive source documentation.
+This inventory records the major Koji subsystems after Phase 38. It is architectural, not exhaustive source documentation.
 
 | Subsystem | Purpose | Owner Package | Primary Interfaces | Failure Modes |
 | --- | --- | --- | --- | --- |
-| Auth | Bootstrap first user, authenticate credentials, create and revoke sessions. | `internal/auth`, `internal/http` | `auth.Store`, `/api/bootstrap`, `/api/login`, `/api/logout`, `/api/session` | Invalid credentials, disabled bootstrap, expired or revoked session, CSRF denial. |
+| Auth | Bootstrap first user, authenticate Super Admin credentials or one-time magic tokens, create and revoke sessions. | `internal/auth`, `internal/http` | `auth.Store`, `/api/bootstrap`, `/api/login`, `/api/login/magic-token`, `/api/logout`, `/api/session` | Invalid credentials, disabled bootstrap, password denied for managed users, expired token, expired or revoked session, CSRF denial. |
 | Sessions | Bound authenticated requests with TTL, idle timeout, CSRF token, and hardened cookies. | `internal/auth` | `SessionPolicy`, `ValidateSession`, `ValidateCSRF`, `RevokeSession` | Expired session, idle timeout, revoked session, invalid CSRF token. |
+| Identity | Manage users, capability assignments, enable/disable state, magic-token issue, and self-lockout prevention. | `internal/identity`, `internal/http` | `identity.Store`, `/api/admin/users`, `/api/admin/users/{id}/capabilities`, `/api/admin/users/{id}/magic-token` | Missing `identity.users.manage`, stale CSRF, invalid capability, final-admin lockout prevention. |
 | Capabilities | Deny protected actions unless a user has the required capability. | `internal/caps`, `internal/http` | `caps.Store.Require`, protected route wrappers | Missing capability returns 403 and may audit denial. |
 | Audit | Persist security and governance events, expose normalized activity. | `internal/audit` | `audit.Store.Record`, `ListRecent`, `/api/activity` | DB write failure, bounded activity listing, sensitive internals intentionally hidden. |
 | Jobs | Persist service-control intent and decisions across restarts. | `internal/jobs`, `internal/http` | `jobs.Store`, `/api/jobs`, `/api/jobs/{id}` | Invalid transition, missing job, failed worker completion. |
@@ -19,7 +20,7 @@ This inventory records the major Koji subsystems after Phase 36. It is architect
 | Backup | Create offline-restorable SQLite and configuration artifacts. | `packaging/scripts/backup.sh` | `make backup`, SQLite `.backup`, metadata counts | Missing DB/config, missing `sqlite3`, bad backup destination. |
 | Recovery | Restore database/configuration and verify durable governance data. | `packaging/scripts/restore.sh`, `verify_restore.sh` | `make restore`, `make verify-restore` | Missing archive members, integrity failure, schema mismatch, count mismatch. |
 | Upgrade Safety | Check schema compatibility before migrations and verify upgraded state. | `internal/db`, `packaging/scripts` | `CheckSchemaCompatibility`, `make pre-upgrade-check`, `make verify-upgrade` | Future schema, corrupt migration history, missing backup, unreadable core tables. |
-| Frontend | Operator workspace for overview, services, processes, jobs, activity, and settings. | `web/src` | React views, typed API client, toast provider | Unauthorized requests, stale polling data, redacted process fields, network failure. |
+| Frontend | Operator workspace for overview, services, processes, jobs, activity, administration, and settings. | `web/src` | React views, typed API client, toast provider | Unauthorized requests, stale polling data, redacted process fields, identity permission denial, network failure. |
 | OpenAPI | Machine-readable API contract and generated reference docs. | `docs/api`, `packaging/scripts/generate_openapi_docs.mjs` | `make openapi`, `make verify-openapi` | Route drift, missing capability metadata, stale generated references. |
 
 ## Boundaries
@@ -27,5 +28,5 @@ This inventory records the major Koji subsystems after Phase 36. It is architect
 - The browser is never authoritative.
 - `kojid` may observe host state and coordinate governance.
 - `koji-agent` owns privileged mutation.
-- SQLite is the durable source for users, sessions, capabilities, audit, jobs, approvals, and migrations.
+- SQLite is the durable source for users, sessions, capabilities, magic tokens, audit, jobs, approvals, and migrations.
 - OpenAPI documents HTTP contracts; it does not define runtime authorization by itself.

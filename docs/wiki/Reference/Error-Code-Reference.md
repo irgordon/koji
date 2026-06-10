@@ -18,6 +18,7 @@
 | `network_error` | Browser cannot reach Koji |
 | `unexpected_response` | Response shape was not expected |
 | `session_expired` | Sign in again before continuing |
+| `self_lockout_prevented` | Koji blocked removing the final identity administrator |
 
 ## Protected Internals
 

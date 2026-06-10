@@ -13,6 +13,7 @@ The frontend is a React and TypeScript operator workspace under `web/src`. It us
 | Processes | `ProcessesView`, `ProcessSummaryChart` | Show redaction-aware process rows and safe process-state summary. | `/api/v1/processes` | Hidden fields, missing capability, policy limits. |
 | Jobs | `JobsView`, `JobDecisionControls` | Show durable jobs and approve/reject queued jobs. | `/api/jobs`, `/api/jobs/{id}/approve`, `/api/jobs/{id}/reject` | Missing `jobs.read` or `jobs.approve`, CSRF failure, invalid transition. |
 | Activity | `ActivityView` | Show normalized audit activity. | `/api/activity` | Missing `audit.events.read`, empty audit stream. |
+| Administration | `AdminView` | Create managed users, enable/disable accounts, grant/revoke capabilities, and issue one-time magic tokens. | `/api/admin/users`, `/api/admin/users/{id}/capabilities`, `/api/admin/users/{id}/magic-token` | Missing `identity.users.manage`, CSRF failure, self-lockout prevention, invalid capability. |
 | Settings | `SettingsView`, `PolicyCard` | Explain read-only policy surfaces currently enforced by backend config. | Static UI text. | None; does not expose mutable settings. |
 
 ## Reusable Components
@@ -40,17 +41,19 @@ The frontend is a React and TypeScript operator workspace under `web/src`. It us
 | Toasts | `ToastProvider`, `useToast` | Centralized feedback for login/session/API/job actions. |
 | API normalization | `api.ts` | Converts backend and network errors to safe plain-language messages. |
 | Job decision form state | `JobsView` | Reason text is local per visible job row. |
+| Identity administration state | `AdminView` | User creation, capability selection, per-user capability lists, and one-time token display are local to the page. |
 
 ## Polling Behavior
 
 - Overview telemetry and health/readiness use moderate polling.
 - Jobs use moderate polling because job state can change by worker action.
 - Activity uses slower polling.
+- Administration uses moderate polling and refreshes after mutating identity actions.
 - Processes are fetched through the same polling helper but remain redaction-aware.
 - One failed panel stores its own error instead of blocking the full app.
 
 ## API Client Surfaces
 
-`api.ts` exports typed helpers for metrics, disk, services, processes, health, readiness, activity, jobs, observability, job decisions, and service-control job creation.
+`api.ts` exports typed helpers for metrics, disk, services, processes, health, readiness, activity, jobs, observability, job decisions, service-control job creation, identity administration, capability assignment, and magic-token login.
 
 Runtime guards validate response shapes and return `unexpected_response` when a payload does not match the expected contract.

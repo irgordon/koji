@@ -56,11 +56,21 @@ Recovery steps: fix the underlying reason and create a new job.
 
 Symptoms: login returns safe failure text.
 
-Likely causes: wrong credentials or bootstrap already completed.
+Likely causes: wrong Super Admin credentials, non-Super Admin password login, invalid magic token, expired magic token, or bootstrap already completed.
 
-Verification steps: check Activity for `auth.login` failure and auth metrics.
+Verification steps: check Activity for `auth.login`, `auth.magic_token_failure`, `identity.magic_token_expired`, or `auth.password_denied_non_super_admin`, then compare auth metrics.
 
-Recovery steps: use valid credentials or restore the admin data path.
+Recovery steps: use valid Super Admin credentials, issue a fresh magic token through an identity administrator, or restore the admin data path from backup.
+
+## Identity Administration Denied
+
+Symptoms: user or capability changes fail with permission denied or self-lockout text.
+
+Likely causes: the operator lacks `identity.users.manage`, the CSRF token is stale, or the requested change would remove the final identity administrator.
+
+Verification steps: inspect Activity for `capability.denied` or `identity.self_lockout_prevented`.
+
+Recovery steps: sign in again if the session is stale, use an existing identity administrator, or restore from a verified backup if all administrators are lost.
 
 ## Session Expiration
 

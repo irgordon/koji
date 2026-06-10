@@ -16,6 +16,10 @@ type credentialRequest struct {
 	Password string `json:"password"`
 }
 
+type magicTokenLoginRequest struct {
+	Token string `json:"token"`
+}
+
 func handleBootstrap(store *auth.Store, auditStore *audit.Store, devMode bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		request, ok := decodeCredentialRequest(w, r)
@@ -46,12 +50,43 @@ func handleLogin(store *auth.Store, auditStore *audit.Store, devMode bool) http.
 
 		session, err := store.Login(r.Context(), request.Username, request.Password)
 		if err != nil {
-			recordAuthAudit(auditStore, r, nil, audit.ActionLogin, audit.OutcomeFailure, "invalid_credentials", devMode)
+			action := audit.ActionLogin
+			reason := "invalid_credentials"
+			if errors.Is(err, auth.ErrPasswordLoginDisabled) {
+				action = audit.ActionPasswordDeniedNonSuper
+				reason = "password_denied_non_super_admin"
+			}
+			recordAuthAudit(auditStore, r, nil, action, audit.OutcomeFailure, reason, devMode)
 			writeJSONError(w, http.StatusUnauthorized, "Invalid credentials")
 			return
 		}
 
 		recordAuthAudit(auditStore, r, &session.UserID, audit.ActionLogin, audit.OutcomeSuccess, "session_created", devMode)
+		writeAuthenticatedSession(w, session, devMode)
+	}
+}
+
+func handleMagicTokenLogin(store *auth.Store, auditStore *audit.Store, devMode bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		request, ok := decodeMagicTokenLoginRequest(w, r)
+		if !ok {
+			recordAuthAudit(auditStore, r, nil, audit.ActionMagicTokenFailure, audit.OutcomeFailure, "invalid_request", devMode)
+			return
+		}
+
+		session, err := store.LoginMagicToken(r.Context(), request.Token)
+		if err != nil {
+			reason := magicTokenFailureReason(err)
+			recordAuthAudit(auditStore, r, nil, audit.ActionMagicTokenFailure, audit.OutcomeFailure, reason, devMode)
+			if errors.Is(err, auth.ErrMagicTokenExpired) {
+				recordAuthAudit(auditStore, r, nil, audit.ActionIdentityMagicTokenExpired, audit.OutcomeFailure, reason, devMode)
+			}
+			writeJSONError(w, http.StatusUnauthorized, "Invalid magic token")
+			return
+		}
+
+		recordAuthAudit(auditStore, r, &session.UserID, audit.ActionMagicTokenSuccess, audit.OutcomeSuccess, "session_created", devMode)
+		recordAuthAudit(auditStore, r, &session.UserID, audit.ActionIdentityMagicTokenConsumed, audit.OutcomeSuccess, "token_consumed", devMode)
 		writeAuthenticatedSession(w, session, devMode)
 	}
 }
@@ -118,6 +153,25 @@ func decodeCredentialRequest(w http.ResponseWriter, r *http.Request) (credential
 		return credentialRequest{}, false
 	}
 	return request, true
+}
+
+func decodeMagicTokenLoginRequest(w http.ResponseWriter, r *http.Request) (magicTokenLoginRequest, bool) {
+	var request magicTokenLoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "Invalid request body")
+		return magicTokenLoginRequest{}, false
+	}
+	return request, true
+}
+
+func magicTokenFailureReason(err error) string {
+	if errors.Is(err, auth.ErrMagicTokenExpired) {
+		return "magic_token_expired"
+	}
+	if errors.Is(err, auth.ErrInvalidCredential) {
+		return "invalid_magic_token"
+	}
+	return "magic_token_failed"
 }
 
 func writeBootstrapError(w http.ResponseWriter, err error) {

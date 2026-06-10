@@ -3,7 +3,7 @@ set -eu
 
 db_path="${KOJI_DB_PATH:-/var/lib/koji/koji.db}"
 config_dir="${KOJI_CONFIG_DIR:-/etc/koji}"
-target_schema="${KOJI_TARGET_SCHEMA_VERSION:-0008_observability_metrics_read_capability}"
+target_schema="${KOJI_TARGET_SCHEMA_VERSION:-0009_identity_magic_tokens}"
 
 require_command() {
 	if ! command -v "$1" >/dev/null 2>&1; then

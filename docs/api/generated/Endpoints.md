@@ -189,3 +189,102 @@ Moves a queued job to rejected.
 - Response: `Job`
 - Errors: `unauthenticated`, `forbidden`, `csrf_missing_or_invalid`, `session_expired`, `job_not_found`, `job_conflict`, `validation_error`, `unexpected_response`
 
+## POST /api/login/magic-token
+
+Consumes a one-time magic token and creates a session.
+
+- Authentication: Public
+- Capability: `public`
+- CSRF required: no
+- Request: `MagicTokenLoginRequest`
+- Response: `AuthSessionResponse`
+- Errors: `magic_token_invalid`, `magic_token_expired`, `validation_error`, `unexpected_response`
+
+## GET /api/admin/users
+
+Lists Super Admin and managed users.
+
+- Authentication: Required
+- Capability: `identity.users.manage`
+- CSRF required: no
+- Request: None
+- Response: `AdminUserListResponse`
+- Errors: `unauthenticated`, `forbidden`, `session_expired`, `unexpected_response`
+
+## POST /api/admin/users
+
+Creates a passwordless managed user.
+
+- Authentication: Required
+- Capability: `identity.users.manage`
+- CSRF required: yes
+- Request: `AdminUserCreateRequest`
+- Response: `AdminUser`
+- Errors: `unauthenticated`, `forbidden`, `csrf_missing_or_invalid`, `session_expired`, `validation_error`, `unexpected_response`
+
+## POST /api/admin/users/{id}/disable
+
+Disables a user and revokes active sessions. Final Super Admin and final identity manager are protected.
+
+- Authentication: Required
+- Capability: `identity.users.manage`
+- CSRF required: yes
+- Request: None
+- Response: `AdminUser`
+- Errors: `unauthenticated`, `forbidden`, `csrf_missing_or_invalid`, `session_expired`, `identity_user_not_found`, `self_lockout_prevented`, `unexpected_response`
+
+## POST /api/admin/users/{id}/enable
+
+Enables a disabled managed user.
+
+- Authentication: Required
+- Capability: `identity.users.manage`
+- CSRF required: yes
+- Request: None
+- Response: `AdminUser`
+- Errors: `unauthenticated`, `forbidden`, `csrf_missing_or_invalid`, `session_expired`, `identity_user_not_found`, `unexpected_response`
+
+## GET /api/admin/users/{id}/capabilities
+
+Lists assigned and available capabilities for a user.
+
+- Authentication: Required
+- Capability: `identity.users.manage`
+- CSRF required: no
+- Request: None
+- Response: `CapabilityListResponse`
+- Errors: `unauthenticated`, `forbidden`, `session_expired`, `identity_user_not_found`, `unexpected_response`
+
+## POST /api/admin/users/{id}/capabilities
+
+Grants a capability to a user.
+
+- Authentication: Required
+- Capability: `identity.users.manage`
+- CSRF required: yes
+- Request: `CapabilityGrantRequest`
+- Response: `CapabilitiesResponse`
+- Errors: `unauthenticated`, `forbidden`, `csrf_missing_or_invalid`, `session_expired`, `identity_user_not_found`, `validation_error`, `unexpected_response`
+
+## DELETE /api/admin/users/{id}/capabilities/{capability}
+
+Revokes a capability from a user. Revoking the final identity manager is blocked.
+
+- Authentication: Required
+- Capability: `identity.users.manage`
+- CSRF required: yes
+- Request: None
+- Response: `CapabilitiesResponse`
+- Errors: `unauthenticated`, `forbidden`, `csrf_missing_or_invalid`, `session_expired`, `identity_user_not_found`, `self_lockout_prevented`, `validation_error`, `unexpected_response`
+
+## POST /api/admin/users/{id}/magic-token
+
+Issues a one-time passwordless login token. The raw token is returned only once and is never stored.
+
+- Authentication: Required
+- Capability: `identity.users.manage`
+- CSRF required: yes
+- Request: None
+- Response: `MagicTokenResponse`
+- Errors: `unauthenticated`, `forbidden`, `csrf_missing_or_invalid`, `session_expired`, `identity_user_not_found`, `unexpected_response`
+

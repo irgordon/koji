@@ -113,7 +113,7 @@ func TestLoadConfigAppliesStaticAssetDirAndDevProxyURL(t *testing.T) {
 }
 
 func TestLoadConfigAppliesSessionDurations(t *testing.T) {
-	path := writeTestConfig(t, "session_ttl: 8h\nsession_idle_timeout: 20m\n")
+	path := writeTestConfig(t, "session_ttl: 8h\nsession_idle_timeout: 20m\nmagic_token_ttl: 10m\n")
 
 	cfg, err := Load(path)
 	if err != nil {
@@ -124,6 +124,9 @@ func TestLoadConfigAppliesSessionDurations(t *testing.T) {
 	}
 	if cfg.SessionIdleTTL.String() != "20m0s" {
 		t.Fatalf("unexpected session idle timeout %s", cfg.SessionIdleTTL)
+	}
+	if cfg.MagicTokenTTL.String() != "10m0s" {
+		t.Fatalf("unexpected magic token ttl %s", cfg.MagicTokenTTL)
 	}
 }
 
@@ -145,6 +148,15 @@ func TestLoadConfigRejectsIdleTimeoutLongerThanSessionTTL(t *testing.T) {
 	_, err := Load(path)
 	if err == nil {
 		t.Fatal("expected idle timeout validation error")
+	}
+}
+
+func TestLoadConfigRejectsInvalidMagicTokenTTL(t *testing.T) {
+	path := writeTestConfig(t, "magic_token_ttl: 2h\n")
+
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected magic token ttl validation error")
 	}
 }
 

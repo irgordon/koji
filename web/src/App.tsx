@@ -4,7 +4,11 @@ import {
   ApiError,
   approveJob,
   controlService,
+  createAdminUser,
+  disableAdminUser,
+  enableAdminUser,
   errorMessage,
+  fetchAdminUsers,
   fetchActivity,
   fetchDisk,
   fetchHealth,
@@ -14,10 +18,15 @@ import {
   fetchProcesses,
   fetchReadiness,
   fetchServices,
+  fetchUserCapabilities,
+  grantUserCapability,
+  issueMagicToken,
   isAbortError,
-  rejectJob
+  rejectJob,
+  revokeUserCapability
 } from './api';
 import type {
+  AdminUser,
   ActivityEvent,
   DiskMetrics,
   HealthResponse,
@@ -30,13 +39,14 @@ import type {
   ServiceControlAction,
   ServiceStatus,
   SystemMetrics,
+  UserCapabilitiesResponse,
   View
 } from './types';
 import './App.css';
 
 const navigationGroups: NavigationGroup[] = [
   { title: 'Operate', views: ['overview', 'services', 'processes', 'jobs'] },
-  { title: 'Govern', views: ['activity', 'settings'] }
+  { title: 'Govern', views: ['activity', 'admin', 'settings'] }
 ];
 
 const validViews: View[] = navigationGroups.flatMap((group) => group.views);
@@ -130,10 +140,12 @@ function AppShell() {
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [jobs, setJobs] = useState<JobRecord[]>([]);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [processSort, setProcessSort] = useState<ProcessSort>('memoryPct');
   const [apiError, setApiError] = useState<string | null>(null);
   const [activityError, setActivityError] = useState<string | null>(null);
   const [jobsError, setJobsError] = useState<string | null>(null);
+  const [adminError, setAdminError] = useState<string | null>(null);
   const [serviceControlNotice, setServiceControlNotice] = useState<string | null>(null);
   const [overviewUpdatedAt, setOverviewUpdatedAt] = useState<Date | null>(null);
   const [jobsUpdatedAt, setJobsUpdatedAt] = useState<Date | null>(null);
@@ -149,6 +161,7 @@ function AppShell() {
   usePolling('processes', fetchProcesses, setProcesses, setApiError, 30000, currentView === 'processes', undefined, notify);
   usePolling('jobs', fetchJobs, setJobs, setJobsError, 15000, currentView === 'jobs', setJobsUpdatedAt, notify);
   usePolling('activity', fetchActivity, setActivity, setActivityError, 60000, currentView === 'activity', setActivityUpdatedAt, notify);
+  usePolling('admin users', fetchAdminUsers, setAdminUsers, setAdminError, 30000, currentView === 'admin', undefined, notify);
 
   const sortedProcesses = useMemo(
     () => sortedProcessList(processes, processSort),
@@ -192,6 +205,10 @@ function AppShell() {
       setJobsError(message);
       notify({ type: 'error', title: 'Job decision failed', message });
     }
+  }
+
+  async function refreshAdminUsers() {
+    setAdminUsers(await fetchAdminUsers());
   }
 
   return (
@@ -262,6 +279,14 @@ function AppShell() {
           )}
           {currentView === 'activity' && (
             <ActivityView events={activity} error={activityError} updatedAt={activityUpdatedAt} />
+          )}
+          {currentView === 'admin' && (
+            <AdminView
+              users={adminUsers}
+              error={adminError}
+              onRefresh={refreshAdminUsers}
+              notify={notify}
+            />
           )}
           {currentView === 'settings' && <SettingsView />}
         </main>
@@ -784,6 +809,184 @@ export function JobsView({
   );
 }
 
+function AdminView({
+  users,
+  error,
+  onRefresh,
+  notify
+}: {
+  users: AdminUser[];
+  error: string | null;
+  onRefresh: () => Promise<void>;
+  notify: (toast: ToastRequest) => void;
+}) {
+  const [username, setUsername] = useState('');
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [capabilities, setCapabilities] = useState<UserCapabilitiesResponse | null>(null);
+  const [selectedCapability, setSelectedCapability] = useState('');
+  const [issuedToken, setIssuedToken] = useState<{ token: string; expiresAt: string; username: string } | null>(null);
+
+  async function createUser() {
+    try {
+      const user = await createAdminUser(username.trim());
+      setUsername('');
+      await onRefresh();
+      notify({ type: 'success', title: 'User created', message: `${user.username} can now receive capabilities and a magic token.` });
+    } catch (adminError: unknown) {
+      notify({ type: 'error', title: 'User creation failed', message: errorMessage(adminError, 'User creation failed') });
+    }
+  }
+
+  async function toggleUser(user: AdminUser) {
+    try {
+      const updated = user.disabled ? await enableAdminUser(user.id) : await disableAdminUser(user.id);
+      await onRefresh();
+      notify({
+        type: 'success',
+        title: updated.disabled ? 'User disabled' : 'User enabled',
+        message: updated.disabled ? `${updated.username} can no longer sign in.` : `${updated.username} can sign in with a valid magic token.`
+      });
+    } catch (adminError: unknown) {
+      notify({ type: 'error', title: 'User update failed', message: errorMessage(adminError, 'User update failed') });
+    }
+  }
+
+  async function manageCapabilities(user: AdminUser) {
+    try {
+      const response = await fetchUserCapabilities(user.id);
+      setSelectedUser(user);
+      setCapabilities(response);
+      setSelectedCapability(response.available.find((capability) => !response.capabilities.includes(capability)) ?? '');
+    } catch (adminError: unknown) {
+      notify({ type: 'error', title: 'Capabilities unavailable', message: errorMessage(adminError, 'Capability lookup failed') });
+    }
+  }
+
+  async function grantCapability() {
+    if (!selectedUser || selectedCapability === '') {
+      return;
+    }
+    try {
+      const assigned = await grantUserCapability(selectedUser.id, selectedCapability);
+      setCapabilities((current) => current ? { ...current, capabilities: assigned } : current);
+      notify({ type: 'success', title: 'Capability granted', message: `${selectedCapability} was granted to ${selectedUser.username}.` });
+    } catch (adminError: unknown) {
+      notify({ type: 'error', title: 'Grant failed', message: errorMessage(adminError, 'Capability grant failed') });
+    }
+  }
+
+  async function revokeCapability(capability: string) {
+    if (!selectedUser) {
+      return;
+    }
+    try {
+      const assigned = await revokeUserCapability(selectedUser.id, capability);
+      setCapabilities((current) => current ? { ...current, capabilities: assigned } : current);
+      notify({ type: 'success', title: 'Capability revoked', message: `${capability} was revoked from ${selectedUser.username}.` });
+    } catch (adminError: unknown) {
+      notify({ type: 'error', title: 'Revoke failed', message: errorMessage(adminError, 'Capability revoke failed') });
+    }
+  }
+
+  async function issueToken(user: AdminUser) {
+    try {
+      const token = await issueMagicToken(user.id);
+      setIssuedToken({ ...token, username: user.username });
+      notify({ type: 'warning', title: 'Magic token issued', message: 'Copy this token now. Koji will not show it again.' });
+    } catch (adminError: unknown) {
+      notify({ type: 'error', title: 'Token issue failed', message: errorMessage(adminError, 'Magic token issue failed') });
+    }
+  }
+
+  const grantOptions = capabilities?.available.filter((capability) => !capabilities.capabilities.includes(capability)) ?? [];
+
+  return (
+    <div className="page-stack">
+      {error && <InlineError message={error} />}
+      <PermissionNotice message="Identity administration requires identity.users.manage. Managed users sign in with one-time magic tokens instead of passwords." />
+      <section className="activity-panel">
+        <div className="card-heading">
+          <h3>Create Managed User</h3>
+          <Tooltip text="Managed users do not have passwords. Issue a one-time magic token after creating the user." />
+        </div>
+        <div className="admin-inline-form">
+          <input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Username" aria-label="New managed username" />
+          <button type="button" onClick={createUser} disabled={username.trim() === ''}>Create user</button>
+        </div>
+      </section>
+      {issuedToken && (
+        <section className="activity-panel magic-token-panel" aria-label="Issued magic token">
+          <div className="card-heading">
+            <h3>Magic Token For {issuedToken.username}</h3>
+            <Tooltip text="Copy this token now. Koji stores only a hash and cannot show the raw token again." />
+          </div>
+          <code>{issuedToken.token}</code>
+          <p>Expires {formatTimestamp(issuedToken.expiresAt)}</p>
+        </section>
+      )}
+      <section className="activity-panel">
+        <div className="card-heading">
+          <h3>Users</h3>
+          <Tooltip text="The final Super Admin and final identity manager are protected from lockout." />
+        </div>
+        <div className="table-wrapper">
+          <table className="activity-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id}>
+                  <td>{user.username}</td>
+                  <td>{user.isSuperAdmin ? 'Super Admin' : 'Managed'}</td>
+                  <td><StatusBadge status={user.disabled ? 'fail' : 'ok'} label={user.disabled ? 'disabled' : 'active'} /></td>
+                  <td>{formatTimestamp(user.createdAt)}</td>
+                  <td>
+                    <div className="job-decision-controls">
+                      <button type="button" onClick={() => manageCapabilities(user)}>Capabilities</button>
+                      <button type="button" onClick={() => issueToken(user)} disabled={user.disabled}>Issue token</button>
+                      <button type="button" onClick={() => toggleUser(user)}>{user.disabled ? 'Enable' : 'Disable'}</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {selectedUser && capabilities && (
+        <section className="activity-panel">
+          <div className="card-heading">
+            <h3>Capabilities For {selectedUser.username}</h3>
+            <Tooltip text="Capabilities decide what an authenticated user may do. Revoking the final identity manager is blocked." />
+          </div>
+          <div className="admin-inline-form">
+            <select value={selectedCapability} onChange={(event) => setSelectedCapability(event.target.value)} aria-label="Capability to grant">
+              <option value="">Select capability</option>
+              {grantOptions.map((capability) => <option key={capability} value={capability}>{capability}</option>)}
+            </select>
+            <button type="button" onClick={grantCapability} disabled={selectedCapability === ''}>Grant</button>
+          </div>
+          <div className="capability-list">
+            {capabilities.capabilities.map((capability) => (
+              <span key={capability} className="capability-chip">
+                {capability}
+                <button type="button" onClick={() => revokeCapability(capability)}>Revoke</button>
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
 function JobDecisionControls({
   job,
   reason,
@@ -1049,6 +1252,8 @@ function viewSubtitle(view: View): string {
       return 'Durable service-control job lifecycle.';
     case 'activity':
       return 'Governed audit activity read model.';
+    case 'admin':
+      return 'Users, capabilities, and one-time magic tokens.';
     case 'settings':
       return 'Read-only policy summary.';
   }

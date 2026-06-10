@@ -1,4 +1,6 @@
 import type {
+  AdminUser,
+  AdminUsersResponse,
   ActivityEvent,
   ActivityResponse,
   DiskMetrics,
@@ -7,6 +9,7 @@ import type {
   JobRecord,
   JobsResponse,
   JobStatus,
+  MagicTokenResponse,
   NormalizedErrorCode,
   ObservabilityMetrics,
   ProcessInfo,
@@ -14,7 +17,8 @@ import type {
   ServiceControlJobResponse,
   ServiceListResponse,
   ServiceStatus,
-  SystemMetrics
+  SystemMetrics,
+  UserCapabilitiesResponse
 } from './types';
 
 export class ApiError extends Error {
@@ -88,6 +92,83 @@ export async function controlService(service: string, action: ServiceControlActi
       headers: csrfHeaders()
     },
     isServiceControlJobResponse
+  );
+}
+
+export async function fetchAdminUsers(signal?: AbortSignal): Promise<AdminUser[]> {
+  const response = await requestJSON<AdminUsersResponse>('/api/admin/users', { signal }, isAdminUsersResponse);
+  return response.users;
+}
+
+export async function createAdminUser(username: string): Promise<AdminUser> {
+  return requestJSON<AdminUser>('/api/admin/users', {
+    method: 'POST',
+    headers: jsonHeaders(),
+    body: JSON.stringify({ username })
+  }, isAdminUser);
+}
+
+export async function disableAdminUser(id: number): Promise<AdminUser> {
+  return mutateAdminUser(id, 'disable');
+}
+
+export async function enableAdminUser(id: number): Promise<AdminUser> {
+  return mutateAdminUser(id, 'enable');
+}
+
+export async function fetchUserCapabilities(id: number): Promise<UserCapabilitiesResponse> {
+  return requestJSON<UserCapabilitiesResponse>(
+    `/api/admin/users/${encodeURIComponent(String(id))}/capabilities`,
+    { signal: undefined },
+    isUserCapabilitiesResponse
+  );
+}
+
+export async function grantUserCapability(id: number, capability: string): Promise<string[]> {
+  const response = await requestJSON<{ capabilities: string[] }>(
+    `/api/admin/users/${encodeURIComponent(String(id))}/capabilities`,
+    {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({ capability })
+    },
+    isCapabilitiesOnlyResponse
+  );
+  return response.capabilities;
+}
+
+export async function revokeUserCapability(id: number, capability: string): Promise<string[]> {
+  const response = await requestJSON<{ capabilities: string[] }>(
+    `/api/admin/users/${encodeURIComponent(String(id))}/capabilities/${encodeURIComponent(capability)}`,
+    {
+      method: 'DELETE',
+      headers: csrfHeaders()
+    },
+    isCapabilitiesOnlyResponse
+  );
+  return response.capabilities;
+}
+
+export async function issueMagicToken(id: number): Promise<MagicTokenResponse> {
+  return requestJSON<MagicTokenResponse>(
+    `/api/admin/users/${encodeURIComponent(String(id))}/magic-token`,
+    {
+      method: 'POST',
+      headers: csrfHeaders()
+    },
+    isMagicTokenResponse
+  );
+}
+
+export async function loginWithMagicToken(token: string): Promise<{ authenticated: boolean; csrfToken: string }> {
+  return requestJSON<{ authenticated: boolean; csrfToken: string }>(
+    '/api/login/magic-token',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    },
+    isAuthSessionResponse
   );
 }
 
@@ -167,6 +248,9 @@ function errorCode(status: number, message: string): NormalizedErrorCode {
   if (normalized.includes('not allowlisted')) {
     return 'service_not_allowlisted';
   }
+  if (normalized.includes('self_lockout_prevented')) {
+    return 'self_lockout_prevented';
+  }
   if (normalized.includes('not implemented')) {
     return 'agent_not_implemented';
   }
@@ -201,6 +285,8 @@ function errorText(code: NormalizedErrorCode): string {
       return 'Service mutation is disabled by Koji configuration.';
     case 'service_not_allowlisted':
       return 'That service is not in the configured Koji allowlist.';
+    case 'self_lockout_prevented':
+      return 'Koji blocked that change because it would remove the final identity administrator.';
     case 'job_conflict':
       return 'That job is no longer queued, so it cannot be approved or rejected.';
     case 'validation_error':
@@ -235,6 +321,17 @@ function decideJob(id: string, decision: 'approve' | 'reject', reason: string): 
       body: JSON.stringify({ reason })
     },
     isJobRecord
+  );
+}
+
+function mutateAdminUser(id: number, action: 'disable' | 'enable'): Promise<AdminUser> {
+  return requestJSON<AdminUser>(
+    `/api/admin/users/${encodeURIComponent(String(id))}/${action}`,
+    {
+      method: 'POST',
+      headers: csrfHeaders()
+    },
+    isAdminUser
   );
 }
 
@@ -376,6 +473,44 @@ function isObservabilityMetrics(value: unknown): value is ObservabilityMetrics {
   return isRecord(value) && isNumberRecord(value.counters) && isNumberRecord(value.jobs_by_status);
 }
 
+function isAdminUsersResponse(value: unknown): value is AdminUsersResponse {
+  return isRecord(value) && Array.isArray(value.users) && value.users.every(isAdminUser);
+}
+
+function isAdminUser(value: unknown): value is AdminUser {
+  return (
+    isRecord(value) &&
+    isNumber(value.id) &&
+    typeof value.username === 'string' &&
+    typeof value.isSuperAdmin === 'boolean' &&
+    typeof value.disabled === 'boolean' &&
+    typeof value.createdAt === 'string' &&
+    typeof value.updatedAt === 'string'
+  );
+}
+
+function isUserCapabilitiesResponse(value: unknown): value is UserCapabilitiesResponse {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.capabilities) &&
+    value.capabilities.every(isString) &&
+    Array.isArray(value.available) &&
+    value.available.every(isString)
+  );
+}
+
+function isCapabilitiesOnlyResponse(value: unknown): value is { capabilities: string[] } {
+  return isRecord(value) && Array.isArray(value.capabilities) && value.capabilities.every(isString);
+}
+
+function isMagicTokenResponse(value: unknown): value is MagicTokenResponse {
+  return isRecord(value) && typeof value.token === 'string' && typeof value.expiresAt === 'string';
+}
+
+function isAuthSessionResponse(value: unknown): value is { authenticated: boolean; csrfToken: string } {
+  return isRecord(value) && value.authenticated === true && typeof value.csrfToken === 'string';
+}
+
 function isNumberRecord(value: unknown): value is Record<string, number> {
   return isRecord(value) && Object.values(value).every(isNumber);
 }
@@ -394,4 +529,8 @@ function isOptionalNumber(value: unknown): value is number | undefined {
 
 function isOptionalString(value: unknown): value is string | undefined {
   return value === undefined || typeof value === 'string';
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === 'string';
 }

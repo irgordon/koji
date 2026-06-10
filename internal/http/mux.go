@@ -3,12 +3,14 @@ package http
 import (
 	"database/sql"
 	"net/http"
+	"time"
 
 	"koji/internal/agent"
 	"koji/internal/audit"
 	"koji/internal/auth"
 	"koji/internal/caps"
 	"koji/internal/config"
+	"koji/internal/identity"
 	"koji/internal/jobs"
 	"koji/internal/observability"
 	"koji/internal/system"
@@ -21,6 +23,8 @@ type protectedHandlers struct {
 	serviceAllowlist serviceAllowlist
 	processPolicy    processVisibilityPolicy
 	jobs             *jobs.Store
+	identity         *identity.Store
+	magicTokenTTL    time.Duration
 	metrics          *observability.Registry
 	database         *sql.DB
 }
@@ -71,6 +75,8 @@ func newRouteDependencies(
 		serviceAllowlist: newServiceAllowlist(cfg.ServiceAllowlist),
 		processPolicy:    newProcessVisibilityPolicy(cfg),
 		jobs:             jobs.NewStoreWithMetrics(database, metrics),
+		identity:         identity.NewStore(database),
+		magicTokenTTL:    cfg.MagicTokenTTL,
 		metrics:          metrics,
 		database:         database,
 	}

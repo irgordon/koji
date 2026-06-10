@@ -142,6 +142,44 @@ INSERT INTO capabilities (name, description) VALUES
 	('observability.metrics.read', 'Read control-plane observability metrics');
 `,
 		},
+		{
+			Name: "0009_identity_magic_tokens",
+			SQL: `
+ALTER TABLE users ADD COLUMN is_super_admin INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z';
+
+UPDATE users
+SET is_super_admin = 1,
+	updated_at = created_at
+WHERE id = (SELECT MIN(id) FROM users);
+
+INSERT INTO capabilities (name, description) VALUES
+	('identity.users.manage', 'Manage users, capabilities, sessions, and magic tokens');
+
+INSERT OR IGNORE INTO user_capabilities (user_id, capability_name)
+SELECT users.id, 'identity.users.manage'
+FROM users
+WHERE users.is_super_admin = 1;
+
+CREATE TABLE magic_tokens (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	user_id INTEGER NOT NULL,
+	token_hash TEXT NOT NULL UNIQUE,
+	created_by INTEGER NOT NULL,
+	created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+	expires_at TEXT NOT NULL,
+	consumed_at TEXT,
+	consumed_by_session_id TEXT,
+	revoked_at TEXT,
+	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+	FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
+	FOREIGN KEY (consumed_by_session_id) REFERENCES sessions(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_magic_tokens_hash ON magic_tokens(token_hash);
+CREATE INDEX idx_magic_tokens_user ON magic_tokens(user_id);
+`,
+		},
 	}
 }
 

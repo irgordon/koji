@@ -30,6 +30,8 @@ Sessions have absolute and idle timeouts. Revoked, expired, and idle-expired ses
 
 Bootstrap is available only while no users exist.
 
+The bootstrap user becomes the Super Admin and may use password login. Managed users are passwordless and sign in with one-time magic tokens issued by an identity administrator. Magic tokens are stored only as hashes, have a bounded TTL, and are consumed once.
+
 ## 4. Authorization and Capabilities
 
 Every protected action requires a server-side capability check. The UI may hide controls, but it is not an enforcement point.
@@ -41,8 +43,11 @@ High-risk capabilities include:
 - `audit.events.read`
 - `host.processes.read`
 - `observability.metrics.read`
+- `identity.users.manage`
 
 Grant the minimum capability set required for the task.
+
+Koji prevents disabling the final active Super Admin and prevents removing the final active user with `identity.users.manage`.
 
 ## 5. Agent Security
 
@@ -102,7 +107,7 @@ The Activity API exposes only normalized fields.
 
 ## 9. Database, Backup, and Upgrade Security
 
-SQLite lives at `/var/lib/koji/koji.db` by default and stores users, sessions, capabilities, audit, jobs, approvals, bootstrap state, and migrations.
+SQLite lives at `/var/lib/koji/koji.db` by default and stores users, sessions, capabilities, magic tokens, audit, jobs, approvals, bootstrap state, and migrations.
 
 Migrations are embedded and checksummed. Checksum mismatch, future schema, or corrupt migration history prevents startup.
 
@@ -116,7 +121,7 @@ Secrets must not be logged.
 
 Support bundles and config dumps must redact secrets.
 
-API responses must not expose password hashes, session secrets, CSRF secrets, or bootstrap internals.
+API responses must not expose password hashes, magic token hashes, session secrets, CSRF secrets, or bootstrap internals. Raw magic tokens may only be displayed once immediately after token issue.
 
 ## 11. Reporting Security Issues
 

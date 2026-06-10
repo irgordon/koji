@@ -26,6 +26,15 @@ API version: `v0.1.3`
 | GET | `/api/jobs/{id}` | Read job | Required | `jobs.read` | None | `Job` | `unauthenticated`, `forbidden`, `session_expired`, `job_not_found`, `unexpected_response` |
 | POST | `/api/jobs/{id}/approve` | Approve job | Required | `jobs.approve` | `JobDecision` | `Job` | `unauthenticated`, `forbidden`, `csrf_missing_or_invalid`, `session_expired`, `job_not_found`, `job_conflict`, `validation_error`, `unexpected_response` |
 | POST | `/api/jobs/{id}/reject` | Reject job | Required | `jobs.approve` | `JobDecision` | `Job` | `unauthenticated`, `forbidden`, `csrf_missing_or_invalid`, `session_expired`, `job_not_found`, `job_conflict`, `validation_error`, `unexpected_response` |
+| POST | `/api/login/magic-token` | Magic token login | Public | `public` | `MagicTokenLoginRequest` | `AuthSessionResponse` | `magic_token_invalid`, `magic_token_expired`, `validation_error`, `unexpected_response` |
+| GET | `/api/admin/users` | List users | Required | `identity.users.manage` | None | `AdminUserListResponse` | `unauthenticated`, `forbidden`, `session_expired`, `unexpected_response` |
+| POST | `/api/admin/users` | Create managed user | Required | `identity.users.manage` | `AdminUserCreateRequest` | `AdminUser` | `unauthenticated`, `forbidden`, `csrf_missing_or_invalid`, `session_expired`, `validation_error`, `unexpected_response` |
+| POST | `/api/admin/users/{id}/disable` | Disable user | Required | `identity.users.manage` | None | `AdminUser` | `unauthenticated`, `forbidden`, `csrf_missing_or_invalid`, `session_expired`, `identity_user_not_found`, `self_lockout_prevented`, `unexpected_response` |
+| POST | `/api/admin/users/{id}/enable` | Enable user | Required | `identity.users.manage` | None | `AdminUser` | `unauthenticated`, `forbidden`, `csrf_missing_or_invalid`, `session_expired`, `identity_user_not_found`, `unexpected_response` |
+| GET | `/api/admin/users/{id}/capabilities` | List user capabilities | Required | `identity.users.manage` | None | `CapabilityListResponse` | `unauthenticated`, `forbidden`, `session_expired`, `identity_user_not_found`, `unexpected_response` |
+| POST | `/api/admin/users/{id}/capabilities` | Grant capability | Required | `identity.users.manage` | `CapabilityGrantRequest` | `CapabilitiesResponse` | `unauthenticated`, `forbidden`, `csrf_missing_or_invalid`, `session_expired`, `identity_user_not_found`, `validation_error`, `unexpected_response` |
+| DELETE | `/api/admin/users/{id}/capabilities/{capability}` | Revoke capability | Required | `identity.users.manage` | None | `CapabilitiesResponse` | `unauthenticated`, `forbidden`, `csrf_missing_or_invalid`, `session_expired`, `identity_user_not_found`, `self_lockout_prevented`, `validation_error`, `unexpected_response` |
+| POST | `/api/admin/users/{id}/magic-token` | Issue magic token | Required | `identity.users.manage` | None | `MagicTokenResponse` | `unauthenticated`, `forbidden`, `csrf_missing_or_invalid`, `session_expired`, `identity_user_not_found`, `unexpected_response` |
 
 Related generated references:
 

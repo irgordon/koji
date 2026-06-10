@@ -22,6 +22,10 @@ The browser may display state and request actions. It may not decide authorizati
 
 - Production APIs are deny-by-default unless explicitly public.
 - Bootstrap exists only until the first local user is created.
+- The first bootstrap user is the Super Admin.
+- Password login is limited to Super Admin users.
+- Managed users authenticate with one-time magic tokens.
+- Magic tokens are stored as hashes, expire, and are consumed once.
 - Sessions have bounded absolute and idle lifetimes.
 - Revoked, expired, and idle-expired sessions are rejected.
 - Valid authenticated requests update session last-seen time.
@@ -35,6 +39,8 @@ The browser may display state and request actions. It may not decide authorizati
 - Missing capability fails closed.
 - Capability denial returns safe errors.
 - Capability denial is audited where the surface requires audit.
+- User and capability management requires `identity.users.manage`.
+- The final active Super Admin and final active identity manager cannot be disabled or stripped of identity administration authority.
 
 ## 5. Agent Boundary
 
@@ -137,6 +143,8 @@ Root web process with broad privileges
 Arbitrary command endpoint
 Silent capability no-op
 Mutable audit history
+Plaintext stored magic token
+Password login for managed users
 Unchecked migration checksum change
 Future schema accepted by older binary
 Unbounded command output

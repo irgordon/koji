@@ -34,6 +34,7 @@ The system is intentionally small: a Go daemon, a local Go agent, SQLite, a Reac
 /internal/config       # Strict runtime configuration loading and validation
 /internal/db           # SQLite, migrations, schema compatibility
 /internal/http         # Routes, middleware, handlers, SPA serving
+/internal/identity     # User administration, capabilities, magic tokens
 /internal/agent        # Unix socket RPC client/server and guarded executor
 /internal/system       # Read-only host observation and policy shaping
 /internal/jobs         # Durable jobs, approvals, worker lifecycle
@@ -55,6 +56,7 @@ The system is intentionally small: a Go daemon, a local Go agent, SQLite, a Reac
 - SQLite initialization, schema compatibility checks, and migrations.
 - Authentication, sessions, CSRF, and cookies.
 - Capability enforcement.
+- Identity administration and passwordless magic-token login.
 - Protected host observation APIs.
 - Durable job creation and approval/rejection APIs.
 - Job worker lifecycle.
@@ -78,7 +80,7 @@ The agent does not expose arbitrary shell execution or TCP transport.
 
 ### Frontend
 
-The frontend is a React/TypeScript operator workspace. It renders Overview, Services, Processes, Jobs, Activity, and Settings.
+The frontend is a React/TypeScript operator workspace. It renders Overview, Services, Processes, Jobs, Activity, Administration, and Settings.
 
 It may request actions and display state. It does not decide authentication, authorization, policy, approval, audit, or final state.
 
@@ -118,6 +120,7 @@ jobs.read
 jobs.approve
 audit.events.read
 observability.metrics.read
+identity.users.manage
 ```
 
 Authenticated users are not implicitly administrators.
@@ -152,7 +155,7 @@ Production requires an explicit `service_allowlist`. Process visibility defaults
 
 ## 10. Database and Migrations
 
-SQLite stores users, sessions, capabilities, audit events, jobs, approvals, bootstrap state, and migration state.
+SQLite stores users, sessions, capabilities, magic tokens, audit events, jobs, approvals, bootstrap state, and migration state.
 
 SQLite is opened with:
 

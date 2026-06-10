@@ -15,6 +15,7 @@ Capabilities are defined in `internal/caps`. Authentication proves identity; cap
 | `jobs.approve` | Approve or reject queued jobs. | `POST /api/jobs/{id}/approve`, `POST /api/jobs/{id}/reject` | High: human authorization boundary for future mutation. |
 | `audit.events.read` | Read normalized audit activity. | `GET /api/activity` | High: governance history visibility. |
 | `observability.metrics.read` | Read control-plane counters and job status aggregates. | `GET /api/observability/metrics` | Medium: operational health visibility. |
+| `identity.users.manage` | Manage users, user capabilities, enable/disable state, and magic token issue. | `GET /api/admin/users`, `POST /api/admin/users`, `POST /api/admin/users/{id}/disable`, `POST /api/admin/users/{id}/enable`, `GET /api/admin/users/{id}/capabilities`, `POST /api/admin/users/{id}/capabilities`, `DELETE /api/admin/users/{id}/capabilities/{capability}`, `POST /api/admin/users/{id}/magic-token` | Critical: identity administration and capability assignment. |
 
 ## Failure Modes
 
@@ -24,4 +25,4 @@ Capabilities are defined in `internal/caps`. Authentication proves identity; cap
 
 ## Assignment Guidance
 
-Grant the smallest capability set required for the operator task. In particular, keep `jobs.approve`, `host.services.control`, `audit.events.read`, and `host.processes.read` tightly scoped.
+Grant the smallest capability set required for the operator task. In particular, keep `identity.users.manage`, `jobs.approve`, `host.services.control`, `audit.events.read`, and `host.processes.read` tightly scoped.

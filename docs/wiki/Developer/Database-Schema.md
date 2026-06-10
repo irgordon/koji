@@ -8,7 +8,7 @@ SQLite stores the durable state needed for sessions, capabilities, audit, jobs, 
 
 ## How It Works
 
-Migrations are ordered, checksummed, and tracked in `schema_migrations`. Core tables include `users`, `sessions`, `capabilities`, `user_capabilities`, `audit_events`, and `jobs`.
+Migrations are ordered, checksummed, and tracked in `schema_migrations`. Core tables include `users`, `sessions`, `capabilities`, `user_capabilities`, `magic_tokens`, `audit_events`, and `jobs`.
 
 ## What Protects It
 

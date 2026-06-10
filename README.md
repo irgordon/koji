@@ -21,8 +21,9 @@ Koji is split into clear responsibility zones:
 
 - `kojid` serves the authenticated web/API control plane.
 - `koji-agent` owns the privileged local boundary.
-- SQLite stores users, sessions, capabilities, audit events, and jobs.
+- SQLite stores users, sessions, capabilities, magic tokens, audit events, and jobs.
 - The React/TypeScript frontend provides the operator workspace.
+- Identity administration is governed by capabilities, audit, self-lockout prevention, and one-time magic tokens.
 - Service-control intent flows through capability checks, audit, durable jobs, approval, and the agent boundary.
 - Direct host command execution is centralized behind bounded platform adapters.
 - OpenAPI, backup/restore tooling, upgrade safety checks, packaging scripts, and release smoke gates support production operations.

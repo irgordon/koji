@@ -19,7 +19,23 @@ const (
 	JobsRead            Capability = "jobs.read"
 	JobsApprove         Capability = "jobs.approve"
 	ObservabilityRead   Capability = "observability.metrics.read"
+	IdentityUsersManage Capability = "identity.users.manage"
 )
+
+func All() []Capability {
+	return []Capability{
+		HostMetricsRead,
+		HostDiskRead,
+		HostServicesRead,
+		HostProcessesRead,
+		HostServicesControl,
+		AuditEventsRead,
+		JobsRead,
+		JobsApprove,
+		ObservabilityRead,
+		IdentityUsersManage,
+	}
+}
 
 var ErrCapabilityDenied = errors.New("capability denied")
 

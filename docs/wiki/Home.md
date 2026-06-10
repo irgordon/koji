@@ -55,6 +55,7 @@ Primary architecture pages:
 ## Security
 
 - [Authentication](Security/Authentication.md)
+- [Magic Tokens](Security/Magic-Tokens.md)
 - [Sessions](Security/Sessions.md)
 - [CSRF](Security/CSRF.md)
 - [Capabilities](Security/Capabilities.md)
@@ -67,6 +68,7 @@ Primary architecture pages:
 
 - [Installation](Operations/Installation.md)
 - [Configuration](Operations/Configuration.md)
+- [User Administration](Operations/User-Administration.md)
 - [Health and Readiness](Operations/Health-and-Readiness.md)
 - [Observability](Operations/Observability.md)
 - [Backup and Recovery](Operations/Backup-and-Recovery.md)
@@ -84,6 +86,7 @@ Primary architecture pages:
 - [Jobs Page](User-Guide/Jobs-Page.md)
 - [Activity Page](User-Guide/Activity-Page.md)
 - [Settings Page](User-Guide/Settings-Page.md)
+- [Administration Page](User-Guide/Administration-Page.md)
 
 ## Developer
 

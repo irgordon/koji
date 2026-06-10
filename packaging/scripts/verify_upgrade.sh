@@ -2,7 +2,7 @@
 set -eu
 
 db_path="${KOJI_DB_PATH:-/var/lib/koji/koji.db}"
-expected_schema="${KOJI_EXPECTED_SCHEMA_VERSION:-0008_observability_metrics_read_capability}"
+expected_schema="${KOJI_EXPECTED_SCHEMA_VERSION:-0009_identity_magic_tokens}"
 observability_url="${KOJI_OBSERVABILITY_URL:-}"
 
 require_command() {

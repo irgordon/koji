@@ -172,6 +172,8 @@ func isPublicAuthSurface(r *http.Request) bool {
 		return true
 	case r.Method == http.MethodPost && r.URL.Path == "/api/login":
 		return true
+	case r.Method == http.MethodPost && r.URL.Path == "/api/login/magic-token":
+		return true
 	case r.Method == http.MethodPost && r.URL.Path == "/api/logout":
 		return true
 	case r.Method == http.MethodGet && r.URL.Path == "/api/session":

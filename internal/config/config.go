@@ -48,6 +48,7 @@ type Config struct {
 	AgentServiceAllowlist   []string
 	AgentCommandTimeout     time.Duration
 	AgentCommandOutputLimit int64
+	MagicTokenTTL           time.Duration
 	ProcessVisibilityMode   string
 	IncludeCommandLine      bool
 	MaxProcesses            int
@@ -69,6 +70,7 @@ func NewDefaultConfig() Config {
 		AgentMutationEnabled:    false,
 		AgentCommandTimeout:     DefaultAgentCommandTimeout,
 		AgentCommandOutputLimit: DefaultAgentCommandOutputLimit,
+		MagicTokenTTL:           15 * time.Minute,
 		ProcessVisibilityMode:   ProcessVisibilitySummary,
 		IncludeCommandLine:      false,
 		MaxProcesses:            DefaultMaxProcesses,
@@ -163,6 +165,9 @@ func Validate(cfg Config) error {
 	}
 	if cfg.SessionIdleTTL > cfg.SessionTTL {
 		return fmt.Errorf("session idle timeout must not exceed session ttl")
+	}
+	if cfg.MagicTokenTTL <= 0 || cfg.MagicTokenTTL > time.Hour {
+		return fmt.Errorf("magic token ttl must be between 1ns and 1h")
 	}
 	if err := validateServiceAllowlist(cfg); err != nil {
 		return err
@@ -385,6 +390,12 @@ func applyConfigField(cfg *Config, key string, value string) error {
 			return fmt.Errorf("invalid session idle timeout value")
 		}
 		cfg.SessionIdleTTL = duration
+	case "magic_token_ttl":
+		duration, err := time.ParseDuration(value)
+		if err != nil {
+			return fmt.Errorf("invalid magic_token_ttl value")
+		}
+		cfg.MagicTokenTTL = duration
 	case "service_allowlist":
 		cfg.ServiceAllowlist = parseServiceAllowlist(value)
 	case "process_visibility_mode":

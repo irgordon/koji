@@ -681,6 +681,52 @@ input:focus-visible,
   padding: 6px 8px;
 }
 
+.admin-inline-form {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-inline-form input,
+.admin-inline-form select {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  min-height: 40px;
+  min-width: 220px;
+  padding: 8px 10px;
+}
+
+.magic-token-panel code {
+  background: #0f172a;
+  border-radius: 6px;
+  color: #e2e8f0;
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 12px;
+}
+
+.capability-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.capability-chip {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  display: inline-flex;
+  gap: 8px;
+  padding: 6px 8px;
+}
+
+.capability-chip button {
+  padding: 4px 6px;
+}
+
 .sr-only {
   height: 1px;
   margin: -1px;
@@ -752,12 +798,16 @@ input:focus-visible,
 
   .job-decision-controls input,
   .job-decision-controls button,
+  .admin-inline-form input,
+  .admin-inline-form select,
+  .admin-inline-form button,
   .service-controls button,
   .toggle-group button {
     width: 100%;
   }
 
   .toggle-group,
+  .admin-inline-form,
   .service-controls {
     width: 100%;
   }

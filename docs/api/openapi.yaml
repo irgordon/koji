@@ -476,6 +476,288 @@ paths:
           "$ref": "#/components/responses/Error"
         500:
           "$ref": "#/components/responses/Error"
+  "/api/login/magic-token":
+    post:
+      tags:
+        - "Auth"
+      summary: "Magic token login"
+      description: "Consumes a one-time magic token and creates a session."
+      operationId: "post_api_login_magic_token"
+      x-koji-auth-required: false
+      x-koji-capability: "public"
+      x-koji-errors:
+        - "magic_token_invalid"
+        - "magic_token_expired"
+        - "validation_error"
+        - "unexpected_response"
+      responses:
+        200:
+          description: "AuthSessionResponse"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AuthSessionResponse"
+        default:
+          description: "Safe API error"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/MagicTokenLoginRequest"
+  "/api/admin/users":
+    get:
+      tags:
+        - "Identity"
+      summary: "List users"
+      description: "Lists Super Admin and managed users."
+      operationId: "get_api_admin_users"
+      x-koji-auth-required: true
+      x-koji-capability: "identity.users.manage"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "session_expired"
+        - "unexpected_response"
+      responses:
+        200:
+          description: "AdminUserListResponse"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminUserListResponse"
+        default:
+          description: "Safe API error"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+    post:
+      tags:
+        - "Identity"
+      summary: "Create managed user"
+      description: "Creates a passwordless managed user."
+      operationId: "post_api_admin_users"
+      x-koji-auth-required: true
+      x-koji-capability: "identity.users.manage"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "csrf_missing_or_invalid"
+        - "session_expired"
+        - "validation_error"
+        - "unexpected_response"
+      responses:
+        201:
+          description: "AdminUser"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminUser"
+        default:
+          description: "Safe API error"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      x-koji-csrf-required: true
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/AdminUserCreateRequest"
+  "/api/admin/users/{id}/disable":
+    post:
+      tags:
+        - "Identity"
+      summary: "Disable user"
+      description: "Disables a user and revokes active sessions. Final Super Admin and final identity manager are protected."
+      operationId: "post_api_admin_users_id_disable"
+      x-koji-auth-required: true
+      x-koji-capability: "identity.users.manage"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "csrf_missing_or_invalid"
+        - "session_expired"
+        - "identity_user_not_found"
+        - "self_lockout_prevented"
+        - "unexpected_response"
+      responses:
+        200:
+          description: "AdminUser"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminUser"
+        default:
+          description: "Safe API error"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      x-koji-csrf-required: true
+  "/api/admin/users/{id}/enable":
+    post:
+      tags:
+        - "Identity"
+      summary: "Enable user"
+      description: "Enables a disabled managed user."
+      operationId: "post_api_admin_users_id_enable"
+      x-koji-auth-required: true
+      x-koji-capability: "identity.users.manage"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "csrf_missing_or_invalid"
+        - "session_expired"
+        - "identity_user_not_found"
+        - "unexpected_response"
+      responses:
+        200:
+          description: "AdminUser"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminUser"
+        default:
+          description: "Safe API error"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      x-koji-csrf-required: true
+  "/api/admin/users/{id}/capabilities":
+    get:
+      tags:
+        - "Identity"
+      summary: "List user capabilities"
+      description: "Lists assigned and available capabilities for a user."
+      operationId: "get_api_admin_users_id_capabilities"
+      x-koji-auth-required: true
+      x-koji-capability: "identity.users.manage"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "session_expired"
+        - "identity_user_not_found"
+        - "unexpected_response"
+      responses:
+        200:
+          description: "CapabilityListResponse"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/CapabilityListResponse"
+        default:
+          description: "Safe API error"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+    post:
+      tags:
+        - "Identity"
+      summary: "Grant capability"
+      description: "Grants a capability to a user."
+      operationId: "post_api_admin_users_id_capabilities"
+      x-koji-auth-required: true
+      x-koji-capability: "identity.users.manage"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "csrf_missing_or_invalid"
+        - "session_expired"
+        - "identity_user_not_found"
+        - "validation_error"
+        - "unexpected_response"
+      responses:
+        200:
+          description: "CapabilitiesResponse"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/CapabilitiesResponse"
+        default:
+          description: "Safe API error"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      x-koji-csrf-required: true
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/CapabilityGrantRequest"
+  "/api/admin/users/{id}/capabilities/{capability}":
+    delete:
+      tags:
+        - "Identity"
+      summary: "Revoke capability"
+      description: "Revokes a capability from a user. Revoking the final identity manager is blocked."
+      operationId: "delete_api_admin_users_id_capabilities_capability"
+      x-koji-auth-required: true
+      x-koji-capability: "identity.users.manage"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "csrf_missing_or_invalid"
+        - "session_expired"
+        - "identity_user_not_found"
+        - "self_lockout_prevented"
+        - "validation_error"
+        - "unexpected_response"
+      responses:
+        200:
+          description: "CapabilitiesResponse"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/CapabilitiesResponse"
+        default:
+          description: "Safe API error"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      x-koji-csrf-required: true
+  "/api/admin/users/{id}/magic-token":
+    post:
+      tags:
+        - "Identity"
+      summary: "Issue magic token"
+      description: "Issues a one-time passwordless login token. The raw token is returned only once and is never stored."
+      operationId: "post_api_admin_users_id_magic_token"
+      x-koji-auth-required: true
+      x-koji-capability: "identity.users.manage"
+      x-koji-errors:
+        - "unauthenticated"
+        - "forbidden"
+        - "csrf_missing_or_invalid"
+        - "session_expired"
+        - "identity_user_not_found"
+        - "unexpected_response"
+      responses:
+        201:
+          description: "MagicTokenResponse"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/MagicTokenResponse"
+        default:
+          description: "Safe API error"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      x-koji-csrf-required: true
 components:
   securitySchemes:
     sessionCookie:
@@ -926,16 +1208,109 @@ components:
     ErrorCode:
       type: "string"
       enum:
-        - "unauthenticated"
-        - "forbidden"
-        - "csrf_missing_or_invalid"
-        - "session_expired"
-        - "agent_unavailable"
         - "agent_not_implemented"
-        - "mutation_disabled"
-        - "service_not_allowlisted"
-        - "validation_error"
-        - "job_not_found"
+        - "agent_unavailable"
+        - "csrf_missing_or_invalid"
+        - "forbidden"
+        - "identity_user_not_found"
         - "job_conflict"
+        - "job_not_found"
+        - "magic_token_expired"
+        - "magic_token_invalid"
+        - "mutation_disabled"
         - "network_error"
+        - "self_lockout_prevented"
+        - "service_not_allowlisted"
+        - "session_expired"
+        - "unauthenticated"
         - "unexpected_response"
+        - "validation_error"
+    MagicTokenLoginRequest:
+      type: "object"
+      required:
+        - "token"
+      properties:
+        token:
+          type: "string"
+    AdminUserCreateRequest:
+      type: "object"
+      required:
+        - "username"
+      properties:
+        username:
+          type: "string"
+    CapabilityGrantRequest:
+      type: "object"
+      required:
+        - "capability"
+      properties:
+        capability:
+          type: "string"
+    AdminUser:
+      type: "object"
+      required:
+        - "id"
+        - "username"
+        - "isSuperAdmin"
+        - "disabled"
+        - "createdAt"
+        - "updatedAt"
+      properties:
+        id:
+          type: "integer"
+        username:
+          type: "string"
+        isSuperAdmin:
+          type: "boolean"
+        disabled:
+          type: "boolean"
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+    AdminUserListResponse:
+      type: "object"
+      required:
+        - "users"
+      properties:
+        users:
+          type: "array"
+          items:
+            "$ref": "#/components/schemas/AdminUser"
+    CapabilityListResponse:
+      type: "object"
+      required:
+        - "capabilities"
+        - "available"
+      properties:
+        capabilities:
+          type: "array"
+          items:
+            type: "string"
+        available:
+          type: "array"
+          items:
+            type: "string"
+    CapabilitiesResponse:
+      type: "object"
+      required:
+        - "capabilities"
+      properties:
+        capabilities:
+          type: "array"
+          items:
+            type: "string"
+    MagicTokenResponse:
+      type: "object"
+      required:
+        - "token"
+        - "expiresAt"
+      properties:
+        token:
+          type: "string"
+          description: "Raw one-time token shown only once."
+        expiresAt:
+          type: "string"
+          format: "date-time"

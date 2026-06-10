@@ -1,4 +1,4 @@
-export type View = 'overview' | 'services' | 'processes' | 'jobs' | 'activity' | 'settings';
+export type View = 'overview' | 'services' | 'processes' | 'jobs' | 'activity' | 'admin' | 'settings';
 
 export type ProcessSort = 'pid' | 'memoryPct';
 
@@ -108,6 +108,29 @@ export interface ServiceControlJobResponse {
   status: JobStatus;
 }
 
+export interface AdminUser {
+  id: number;
+  username: string;
+  isSuperAdmin: boolean;
+  disabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminUsersResponse {
+  users: AdminUser[];
+}
+
+export interface UserCapabilitiesResponse {
+  capabilities: string[];
+  available: string[];
+}
+
+export interface MagicTokenResponse {
+  token: string;
+  expiresAt: string;
+}
+
 export interface ApiErrorResponse {
   error: string;
 }
@@ -124,6 +147,7 @@ export type NormalizedErrorCode =
   | 'agent_not_implemented'
   | 'mutation_disabled'
   | 'service_not_allowlisted'
+  | 'self_lockout_prevented'
   | 'job_conflict'
   | 'validation_error'
   | 'network_error'

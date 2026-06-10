@@ -63,6 +63,11 @@ This project follows a forward-only operational style. Database schema changes r
 - Pre-upgrade and post-upgrade verification scripts for governed release upgrades.
 - Upgrade procedure documentation for backup, compatibility checks, verification, and rollback.
 - Developer architectural, backend, frontend, and phase-history inventories.
+- Super Admin bootstrap identity with `identity.users.manage`.
+- Passwordless managed users with one-time magic token login.
+- Identity administration APIs and Administration UI for users, capabilities, enable/disable state, and magic token issue.
+- Self-lockout prevention for the final active Super Admin and final active identity administrator.
+- Magic token TTL configuration with a secure bounded default.
 
 ### Changed
 
@@ -96,8 +101,9 @@ This project follows a forward-only operational style. Database schema changes r
 - Release workflow now validates OpenAPI before building frontend assets and release artifacts.
 - Makefile now includes `backup`, `restore`, and `verify-restore` operational targets.
 - Makefile now includes `pre-upgrade-check` and `verify-upgrade` operational targets.
-- Architecture, invariants, security, configuration, capability, job-state, audit-event, metrics, troubleshooting, README, and SVG mockup docs now reflect the Phase 36 implementation state.
+- Architecture, invariants, security, configuration, capability, job-state, audit-event, metrics, troubleshooting, README, and SVG mockup docs now reflect the current implementation state.
 - Documentation validation now requires inventory pages, required diagrams, and non-stale local wiki links.
+- Non-Super Admin users are now denied password login and must use magic tokens.
 
 ### Removed
 

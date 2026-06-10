@@ -11,6 +11,7 @@ This inventory documents backend architectural surfaces. It intentionally omits 
 | `internal/config` | `Config`, `Load`, `LoadAgent`, `Validate`, `ValidateAgent` | Parse strict config and enforce runtime policy. | YAML-like config files and flag overrides. | Validated `Config`. | `internal/system` service-name validation. |
 | `internal/db` | `Open`, `RunMigrations`, `CheckSchemaCompatibility` | Open SQLite, apply PRAGMAs, validate schema compatibility, and run deterministic migrations. | DB path, migration list. | `*sql.DB`, migration status or error. | `database/sql`, SQLite driver. |
 | `internal/auth` | `Store`, `SessionPolicy` | Manage bootstrap, login, session validation, CSRF, revocation, and cleanup. | Credentials, cookies, CSRF tokens. | `Session`, `Principal`, auth errors. | SQLite tables `users`, `sessions`, `bootstrap_state`. |
+| `internal/identity` | `Store`, `User`, `MagicToken` | Manage users, capability assignment, enable/disable state, magic token issue, and self-lockout prevention. | Admin principal, target user IDs, capability names, token TTL. | User lists, capability lists, raw one-time token at issue, safe domain errors. | SQLite tables `users`, `user_capabilities`, `magic_tokens`, `sessions`; `internal/caps`. |
 | `internal/caps` | `Store.Require`, capability constants | Enforce deny-by-default capability checks. | User ID, capability. | Success or `ErrCapabilityDenied`. | SQLite `user_capabilities`. |
 | `internal/audit` | `Store.Record`, `ListRecent` | Persist governance events and expose normalized recent activity. | `audit.Event`, limit. | Durable row, `ActivityEvent` list. | SQLite `audit_events`, observability registry. |
 | `internal/jobs` | `Store`, `Worker` | Store durable jobs, approve/reject, claim approved work, and finalize worker outcomes. | Service-control intent, decisions, agent results. | `Job` records and audit events. | SQLite `jobs`, `internal/agent`, `internal/audit`, observability. |
@@ -36,4 +37,4 @@ flowchart TD
 
 ## Request Flow
 
-Protected API requests pass through request ID, security headers, auth gate, CSRF for state-changing requests, capability checks, handler logic, and audit where required.
+Protected API requests pass through request ID, security headers, auth gate, CSRF for state-changing requests, capability checks, handler logic, and audit where required. Identity administration requests add `identity.users.manage` and self-lockout checks before changing user or capability state.

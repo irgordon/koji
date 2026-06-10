@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"time"
 
+	"koji/internal/caps"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -21,10 +23,12 @@ const (
 )
 
 var (
-	ErrBootstrapDisabled = errors.New("bootstrap disabled")
-	ErrInvalidCredential = errors.New("invalid credentials")
-	ErrInvalidSession    = errors.New("invalid session")
-	ErrInvalidCSRF       = errors.New("invalid csrf token")
+	ErrBootstrapDisabled     = errors.New("bootstrap disabled")
+	ErrInvalidCredential     = errors.New("invalid credentials")
+	ErrInvalidSession        = errors.New("invalid session")
+	ErrInvalidCSRF           = errors.New("invalid csrf token")
+	ErrPasswordLoginDisabled = errors.New("password login disabled")
+	ErrMagicTokenExpired     = errors.New("magic token expired")
 )
 
 type Store struct {
@@ -105,7 +109,9 @@ func (s *Store) Bootstrap(ctx context.Context, username string, password string)
 		return Session{}, err
 	}
 
-	result, err := tx.ExecContext(ctx, "INSERT INTO users (username, password_hash) VALUES (?, ?)", username, passwordHash)
+	result, err := tx.ExecContext(ctx, `
+INSERT INTO users (username, password_hash, is_super_admin, updated_at)
+VALUES (?, ?, 1, ?)`, username, passwordHash, formatTime(time.Now().UTC()))
 	if err != nil {
 		return Session{}, fmt.Errorf("create bootstrap user: %w", err)
 	}
@@ -113,6 +119,9 @@ func (s *Store) Bootstrap(ctx context.Context, username string, password string)
 	userID, err := result.LastInsertId()
 	if err != nil {
 		return Session{}, fmt.Errorf("read bootstrap user id: %w", err)
+	}
+	if err := txGrantBootstrapCapabilities(ctx, tx, userID); err != nil {
+		return Session{}, err
 	}
 
 	session, err := txCreateSession(ctx, tx, userID, username, s.policy)
@@ -131,15 +140,56 @@ func (s *Store) Login(ctx context.Context, username string, password string) (Se
 		return Session{}, ErrInvalidCredential
 	}
 
-	userID, passwordHash, err := s.lookupUser(ctx, username)
+	userID, passwordHash, isSuperAdmin, err := s.lookupPasswordUser(ctx, username)
 	if err != nil {
 		return Session{}, err
+	}
+	if !isSuperAdmin {
+		return Session{}, ErrPasswordLoginDisabled
+	}
+	if passwordHash == "" {
+		return Session{}, ErrInvalidCredential
 	}
 	if bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password)) != nil {
 		return Session{}, ErrInvalidCredential
 	}
 
 	return s.createSession(ctx, userID, username)
+}
+
+func (s *Store) LoginMagicToken(ctx context.Context, token string) (Session, error) {
+	if token == "" {
+		return Session{}, ErrInvalidCredential
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Session{}, fmt.Errorf("begin magic token login: %w", err)
+	}
+	defer rollback(tx)
+
+	userID, username, expiresAtRaw, err := txLookupMagicToken(ctx, tx, hashToken(token))
+	if err != nil {
+		return Session{}, err
+	}
+	expiresAt, err := parseStoredTime(expiresAtRaw)
+	if err != nil {
+		return Session{}, fmt.Errorf("parse magic token expiry: %w", err)
+	}
+	if !expiresAt.After(time.Now().UTC()) {
+		return Session{}, ErrMagicTokenExpired
+	}
+
+	session, err := txCreateSession(ctx, tx, userID, username, s.policy)
+	if err != nil {
+		return Session{}, err
+	}
+	if err := txConsumeMagicToken(ctx, tx, hashToken(token), session.ID); err != nil {
+		return Session{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return Session{}, fmt.Errorf("commit magic token login: %w", err)
+	}
+	return session, nil
 }
 
 func (s *Store) ValidateSession(ctx context.Context, sessionID string) (Principal, error) {
@@ -215,17 +265,21 @@ func (s *Store) RevokeSession(ctx context.Context, sessionID string) error {
 	return nil
 }
 
-func (s *Store) lookupUser(ctx context.Context, username string) (int64, string, error) {
+func (s *Store) lookupPasswordUser(ctx context.Context, username string) (int64, string, bool, error) {
 	var userID int64
 	var passwordHash string
-	err := s.db.QueryRowContext(ctx, "SELECT id, password_hash FROM users WHERE username = ? AND disabled_at IS NULL", username).Scan(&userID, &passwordHash)
+	var isSuperAdmin bool
+	err := s.db.QueryRowContext(ctx, `
+SELECT id, password_hash, is_super_admin
+FROM users
+WHERE username = ? AND disabled_at IS NULL`, username).Scan(&userID, &passwordHash, &isSuperAdmin)
 	if err == sql.ErrNoRows {
-		return 0, "", ErrInvalidCredential
+		return 0, "", false, ErrInvalidCredential
 	}
 	if err != nil {
-		return 0, "", fmt.Errorf("lookup user: %w", err)
+		return 0, "", false, fmt.Errorf("lookup user: %w", err)
 	}
-	return userID, passwordHash, nil
+	return userID, passwordHash, isSuperAdmin, nil
 }
 
 func (s *Store) createSession(ctx context.Context, userID int64, username string) (Session, error) {
@@ -257,6 +311,57 @@ func txHasUsers(ctx context.Context, tx *sql.Tx) (bool, error) {
 func txClaimBootstrap(ctx context.Context, tx *sql.Tx) error {
 	if _, err := tx.ExecContext(ctx, "INSERT INTO bootstrap_state (id) VALUES (1)"); err != nil {
 		return ErrBootstrapDisabled
+	}
+	return nil
+}
+
+func txGrantBootstrapCapabilities(ctx context.Context, tx *sql.Tx, userID int64) error {
+	if _, err := tx.ExecContext(ctx, `
+INSERT OR IGNORE INTO user_capabilities (user_id, capability_name)
+VALUES (?, ?)`, userID, string(caps.IdentityUsersManage)); err != nil {
+		return fmt.Errorf("grant bootstrap capability: %w", err)
+	}
+	return nil
+}
+
+func txLookupMagicToken(ctx context.Context, tx *sql.Tx, tokenHash string) (int64, string, string, error) {
+	var userID int64
+	var username string
+	var expiresAt string
+	err := tx.QueryRowContext(ctx, `
+SELECT users.id, users.username, magic_tokens.expires_at
+FROM magic_tokens
+JOIN users ON users.id = magic_tokens.user_id
+WHERE magic_tokens.token_hash = ?
+	AND magic_tokens.consumed_at IS NULL
+	AND magic_tokens.revoked_at IS NULL
+	AND users.disabled_at IS NULL`, tokenHash).Scan(&userID, &username, &expiresAt)
+	if err == sql.ErrNoRows {
+		return 0, "", "", ErrInvalidCredential
+	}
+	if err != nil {
+		return 0, "", "", fmt.Errorf("lookup magic token: %w", err)
+	}
+	return userID, username, expiresAt, nil
+}
+
+func txConsumeMagicToken(ctx context.Context, tx *sql.Tx, tokenHash string, sessionID string) error {
+	result, err := tx.ExecContext(ctx, `
+UPDATE magic_tokens
+SET consumed_at = ?,
+	consumed_by_session_id = ?
+WHERE token_hash = ?
+	AND consumed_at IS NULL
+	AND revoked_at IS NULL`, formatTime(time.Now().UTC()), sessionID, tokenHash)
+	if err != nil {
+		return fmt.Errorf("consume magic token: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read magic token consumption count: %w", err)
+	}
+	if affected != 1 {
+		return ErrInvalidCredential
 	}
 	return nil
 }

@@ -1,6 +1,6 @@
 # Settings Page
 
-[Home](../Home.md) | Related: [Configuration](../Operations/Configuration.md), [Capabilities](../Security/Capabilities.md), [Agent Mutation Controls](../Security/Agent-Mutation-Controls.md)
+[Home](../Home.md) | Related: [Configuration](../Operations/Configuration.md), [Capabilities](../Security/Capabilities.md), [Administration Page](Administration-Page.md), [Agent Mutation Controls](../Security/Agent-Mutation-Controls.md)
 
 ## What Problem This Solves
 
@@ -8,7 +8,7 @@ The Settings page summarizes policy boundaries for operators without exposing ed
 
 ## How It Works
 
-It presents read-only summaries for session policy, process visibility, service allowlists, capabilities, and the agent boundary.
+It presents read-only summaries for session policy, magic token lifetime, process visibility, service allowlists, capabilities, identity administration, and the agent boundary.
 
 ## What Protects It
 
