@@ -22,6 +22,15 @@ Create the first formal Koji release candidate and validate production readiness
 | Release URL | https://github.com/irgordon/koji/releases/tag/v0.2.0-rc.1 |
 | Workflow Run | https://github.com/irgordon/koji/actions/runs/27253807713 |
 
+Follow-up RC after adding the operator smoke gate:
+
+| Field | Value |
+| --- | --- |
+| Version | `v0.2.0-rc.2` |
+| Commit | `79b9f3eeafdf51023cfc810cf2eb6c974a728618` |
+| Release URL | https://github.com/irgordon/koji/releases/tag/v0.2.0-rc.2 |
+| Workflow Run | https://github.com/irgordon/koji/actions/runs/27254987692 |
+
 ## Invariants Preserved
 
 - `kojid` still does not execute `systemctl`.
@@ -50,6 +59,7 @@ Create the first formal Koji release candidate and validate production readiness
 | Isolated upgrade verification | PASS |
 | Live Linux operator smoke from this workstation | NOT APPLICABLE |
 | GitHub Actions Docker operator smoke gate | ADDED |
+| RC.2 GitHub Actions Docker operator smoke gate | PASS |
 
 ## Findings
 
@@ -59,13 +69,18 @@ Create the first formal Koji release candidate and validate production readiness
 
 ## Decision
 
-Additional RC Required.
+RC.1: Additional RC Required.
 
-No P0 release blocker was found. The remaining P1 item is resolved for future tags by adding a Linux Docker operator smoke gate to the release workflow. Because `v0.2.0-rc.1` was cut before that gate existed, stable promotion should wait for a follow-up RC that proves the new gate in GitHub Actions.
+No P0 release blocker was found. The remaining P1 item was resolved for future tags by adding a Linux Docker operator smoke gate to the release workflow. Because `v0.2.0-rc.1` was cut before that gate existed, stable promotion required a follow-up RC.
+
+RC.2: Ready for Production.
+
+The follow-up RC proved the build, artifact smoke, operator smoke, and publish sequencing gates in GitHub Actions, then published downloadable assets that passed checksum and rootfs layout verification.
 
 ## Files Changed
 
 - `docs/releases/RC-0.2.0-rc.1.md`
+- `docs/releases/RC-0.2.0-rc.2.md`
 - `docs/phases/PHASE-0043-release-candidate-verification.md`
 - `docs/CHANGELOG.md`
 - `.github/workflows/release.yml`
@@ -99,4 +114,4 @@ docker context ls
 
 ## Summary
 
-Phase 43 cut `v0.2.0-rc.1`, verified the GitHub release workflow and published assets, and recorded a production-readiness decision. The first RC is valid enough for review, but stable promotion should wait for a follow-up RC because the Linux operator workflow gate was added after this tag.
+Phase 43 cut `v0.2.0-rc.1`, found the Linux operator smoke gap, added a Docker-based GitHub Actions operator gate, then cut `v0.2.0-rc.2`. RC.2 passed build, artifact smoke, operator smoke, publish, asset, checksum, and install-layout verification.

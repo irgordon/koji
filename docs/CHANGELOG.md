@@ -73,6 +73,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Security review and repo-grounded threat model validation.
 - Release candidate checklist and final documentation reconciliation after Phases 38-41.
 - First formal release candidate cut and verification report for `v0.2.0-rc.1`.
+- Follow-up `v0.2.0-rc.2` verification report with passing Linux operator workflow smoke gate.
 
 ### Changed
 
