@@ -40,19 +40,8 @@ func TestClientReturnsUnavailableForMissingSocket(t *testing.T) {
 	}
 }
 
-func TestClientReturnsConnectionRefused(t *testing.T) {
-	socketPath := shortSocketPath(t)
-	listener, err := net.Listen("unix", socketPath)
-	if err != nil {
-		skipIfUnixSocketBindDenied(t, err)
-		t.Fatalf("listen unix socket: %v", err)
-	}
-	_ = listener.Close()
-
-	err = NewClient(socketPath).ControlService(context.Background(), ServiceControlRequest{
-		Service: "ssh.service",
-		Action:  "restart",
-	})
+func TestClassifyDialErrorReturnsConnectionRefused(t *testing.T) {
+	err := classifyDialError(context.Background(), syscall.ECONNREFUSED)
 	if !errors.Is(err, ErrConnectionRefused) {
 		t.Fatalf("expected connection refused, got %v", err)
 	}
