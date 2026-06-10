@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build_release:
     name: Build release artifacts
     runs-on: ubuntu-24.04
 
@@ -50,6 +50,53 @@ jobs:
 
       - name: Verify release artifacts
         run: make verify-release
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: koji-release-linux-amd64
+          path: |
+            build/release/kojid-linux-amd64
+            build/release/koji-agent-linux-amd64
+            build/release/koji-rootfs-linux-amd64.tar.gz
+            build/release/SHA256SUMS.txt
+          if-no-files-found: error
+
+  smoke_test_release:
+    name: Smoke-test release artifacts
+    runs-on: ubuntu-24.04
+    needs: build_release
+    outputs:
+      checksums_valid: ${{ steps.smoke.outputs.checksums_valid }}
+      rootfs_layout_valid: ${{ steps.smoke.outputs.rootfs_layout_valid }}
+      systemd_units_valid: ${{ steps.smoke.outputs.systemd_units_valid }}
+      forbidden_paths_found: ${{ steps.smoke.outputs.forbidden_paths_found }}
+
+    steps:
+      - name: Checkout smoke scripts
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: koji-release-linux-amd64
+          path: build/release
+
+      - name: Run release smoke tests
+        id: smoke
+        run: packaging/scripts/ci_verify_release_outputs.sh build/release
+
+  publish_release:
+    name: Publish release assets
+    runs-on: ubuntu-24.04
+    needs: smoke_test_release
+
+    steps:
+      - name: Download checked artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: koji-release-linux-amd64
+          path: build/release
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2

@@ -50,7 +50,7 @@ The install target writes to `build/rootfs/` by default, including binaries, sta
 
 ## Release
 
-Tagged releases are built by GitHub Actions from a clean checkout. Push a semantic version tag to publish Linux amd64 binaries, a staged rootfs archive, and `SHA256SUMS.txt`:
+Tagged releases are built by GitHub Actions from a clean checkout. The workflow builds Linux amd64 binaries, packages a staged rootfs archive, verifies checksums, smoke-tests the downloaded artifact set, and only then publishes release assets:
 
 ```sh
 git tag v0.1.0

@@ -107,11 +107,32 @@ func TestReleaseWorkflowUsesPinnedToolchains(t *testing.T) {
 		"go test ./...",
 		"make release",
 		"make verify-release",
+		"actions/upload-artifact@v4",
+		"actions/download-artifact@v4",
 		"softprops/action-gh-release@v2",
 	})
 	assertContainsNone(t, workflow, []string{
 		"go-version: latest",
 		"node-version: latest",
+		"@master",
+		"@main",
+		"@latest",
+	})
+}
+
+func TestReleaseWorkflowHasSmokeGateBeforePublish(t *testing.T) {
+	workflow := readRepoFile(t, filepath.Join(".github", "workflows", "release.yml"))
+	assertContainsAll(t, workflow, []string{
+		"build_release:",
+		"smoke_test_release:",
+		"publish_release:",
+		"needs: build_release",
+		"needs: smoke_test_release",
+		"checksums_valid: ${{ steps.smoke.outputs.checksums_valid }}",
+		"rootfs_layout_valid: ${{ steps.smoke.outputs.rootfs_layout_valid }}",
+		"systemd_units_valid: ${{ steps.smoke.outputs.systemd_units_valid }}",
+		"forbidden_paths_found: ${{ steps.smoke.outputs.forbidden_paths_found }}",
+		"packaging/scripts/ci_verify_release_outputs.sh build/release",
 	})
 }
 
@@ -132,6 +153,45 @@ func TestReleaseScriptsValidateChecksumsAndForbiddenPaths(t *testing.T) {
 		"usr/share/koji/dist",
 		"usr/lib/systemd/system",
 		"SHA256SUMS.txt",
+	})
+}
+
+func TestReleaseSmokeScriptsValidateDownloadedArtifacts(t *testing.T) {
+	outputs := readPackagingFile(t, filepath.Join("scripts", "ci_verify_release_outputs.sh"))
+	checksums := readPackagingFile(t, filepath.Join("scripts", "ci_verify_checksums.sh"))
+	rootfs := readPackagingFile(t, filepath.Join("scripts", "ci_verify_rootfs_layout.sh"))
+	systemd := readPackagingFile(t, filepath.Join("scripts", "ci_verify_systemd_units.sh"))
+
+	assertContainsAll(t, outputs, []string{
+		"checksums_valid=",
+		"rootfs_layout_valid=",
+		"systemd_units_valid=",
+		"forbidden_paths_found=",
+		"Artifact Smoke Test Summary",
+		"kojid-linux-amd64",
+		"koji-agent-linux-amd64",
+		"koji-rootfs-linux-amd64.tar.gz",
+		"SHA256SUMS.txt",
+		"--help",
+	})
+	assertContainsAll(t, checksums, []string{
+		"missing or empty checksum file",
+		"missing checksum entry",
+		"sha256sum -c SHA256SUMS.txt",
+	})
+	assertContainsAll(t, rootfs, []string{
+		"usr/bin/kojid",
+		"usr/bin/koji-agent",
+		"usr/share/koji/dist",
+		"etc/koji",
+		"usr/lib/systemd/system",
+		"var/lib/koji",
+	})
+	assertContainsAll(t, systemd, []string{
+		"ExecStart=/usr/bin/kojid",
+		"ExecStart=/usr/bin/koji-agent -config /etc/koji/agent.yaml",
+		"RuntimeDirectory=koji",
+		"WorkingDirectory=/",
 	})
 }
 
