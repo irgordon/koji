@@ -63,6 +63,8 @@ Verify downloaded release assets with:
 shasum -a 256 -c SHA256SUMS.txt
 ```
 
+The first validated release dry run completed with `v0.1.3`, proving the tag-triggered build, smoke-test, publish, and downloaded-asset verification path.
+
 ## License
 
 Koji is released under the license included in this repository. See [LICENSE](LICENSE) for details.

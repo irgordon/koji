@@ -46,6 +46,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Runtime packaging layout with systemd units, example configs, staging install target, and deployment filesystem paths.
 - Release workflow with pinned toolchains, CI-built artifacts, rootfs archive assembly, checksum generation, and artifact validation.
 - Release smoke-test stage with downloaded artifact validation, checksum verification, rootfs layout checks, systemd unit checks, forbidden path scanning, and workflow outputs.
+- First tagged release dry run through GitHub Releases, validated with downloaded `v0.1.3` assets.
 
 ### Changed
 
@@ -70,6 +71,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Build and install targets now separate frontend assets, Go binaries, configuration examples, and systemd unit files into package-oriented paths.
 - Release targets now produce Linux amd64 binaries, a rootfs archive, and `SHA256SUMS.txt`.
 - Release publishing now depends on a distinct CI smoke-test job before GitHub release assets are uploaded.
+- Release smoke validation now restores executable bits after GitHub artifact download before running binary help checks.
 
 ### Removed
 
