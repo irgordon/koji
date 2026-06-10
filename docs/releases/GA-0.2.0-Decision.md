@@ -7,10 +7,10 @@
 | Date | 2026-06-10 |
 | Decision | Approved for `v0.2.0` |
 | Decision Basis | RC.2 resolved the RC.1 operator-smoke gap and passed all release gates. |
-| Planned Tag | `v0.2.0` |
-| Planned Commit | `4f7e81f971e2710327b37dbcf66c3011217321c7` |
-| Planned Release URL | https://github.com/irgordon/koji/releases/tag/v0.2.0 |
-| Workflow URL | Pending tag-triggered release workflow |
+| Tag | `v0.2.0` |
+| Commit | `ee0dde054e31e7eee1680f24e1ccfec4a3142d08` |
+| Release URL | https://github.com/irgordon/koji/releases/tag/v0.2.0 |
+| Workflow URL | https://github.com/irgordon/koji/actions/runs/27272287368 |
 
 ## Release Candidates Reviewed
 
@@ -35,6 +35,41 @@
 | RC.2 Artifact Smoke | PASS | `smoke_test_release` passed. |
 | RC.2 Operator Smoke | PASS | `operator_smoke_release` passed. |
 | RC.2 Publish Gate | PASS | `publish_release` started after artifact and operator smoke gates passed. |
+| GA Release Workflow | PASS | https://github.com/irgordon/koji/actions/runs/27272287368 |
+| GA Artifact Smoke | PASS | `smoke_test_release` passed. |
+| GA Operator Smoke | PASS | `operator_smoke_release` passed. |
+| GA Publish Gate | PASS | `publish_release` started after artifact and operator smoke gates passed. |
+| GA Release Assets | PASS | Downloaded `v0.2.0` assets include both binaries, rootfs archive, and `SHA256SUMS.txt`. |
+| GA Checksums | PASS | `sha256sum -c SHA256SUMS.txt` returned `OK` for all downloaded GA artifacts. |
+| GA Install Layout | PASS | Extracted rootfs contains binaries, frontend assets, config directory, systemd unit directory, and data directory. |
+
+## GA Workflow Job Order
+
+| Job | Started | Completed | Result |
+| --- | --- | --- | --- |
+| Build release artifacts | 2026-06-10T11:13:39Z | 2026-06-10T11:15:51Z | PASS |
+| Smoke-test release artifacts | 2026-06-10T11:15:54Z | 2026-06-10T11:15:59Z | PASS |
+| Smoke-test operator workflows | 2026-06-10T11:16:02Z | 2026-06-10T11:16:25Z | PASS |
+| Publish release assets | 2026-06-10T11:16:27Z | 2026-06-10T11:16:35Z | PASS |
+
+## GA Asset Verification
+
+Downloaded from the GitHub Release:
+
+```text
+koji-agent-linux-amd64
+koji-rootfs-linux-amd64.tar.gz
+kojid-linux-amd64
+SHA256SUMS.txt
+```
+
+Checksum output:
+
+```text
+kojid-linux-amd64: OK
+koji-agent-linux-amd64: OK
+koji-rootfs-linux-amd64.tar.gz: OK
+```
 
 ## Operator Smoke Evidence
 
@@ -86,4 +121,4 @@ These are not production blockers for `v0.2.0`.
 
 Approved for `v0.2.0`.
 
-Koji has passed the required validation gates, the RC.1 P1 release gap was resolved by RC.2, and no P0 or unresolved P1 issue remains. The next step is to tag `v0.2.0`, verify the GA release workflow, verify downloaded release assets, and update this decision record with the final workflow result.
+Koji passed the required local validation gates, the RC.1 P1 release gap was resolved by RC.2, the GA release workflow passed, and downloaded GA artifacts verified successfully. No P0 or unresolved P1 issue remains.
