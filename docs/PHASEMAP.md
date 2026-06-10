@@ -8,7 +8,99 @@ Each phase should be small enough to review.
 
 Each phase should preserve the architecture and invariants unless the phase explicitly changes them.
 
-## 2. Phase Discipline
+## 2. Product Roadmap After v0.2.0
+
+`v0.2.0` is the Production Baseline.
+
+Koji now has the core production foundation:
+
+- Authentication.
+- Magic tokens.
+- Capabilities.
+- Audit.
+- Jobs.
+- Approvals.
+- Agent boundary.
+- Service control.
+- Observability.
+- Backup and restore.
+- Upgrade safety.
+- OpenAPI.
+- Documentation portal.
+- Release automation.
+- Artifact smoke testing.
+- Operator smoke testing.
+- Accessibility.
+- Frontend test suite.
+- Code quality audit.
+
+After `v0.2.0`, Koji should be treated as a product rather than a continuous architecture-construction project.
+
+Major architecture work is frozen for the `v0.3.0` cycle unless a release-blocking production issue requires it. New work should improve operator visibility, daily workflows, search, retention, usability, and release readiness.
+
+### v0.2.x: Maintenance
+
+Scope:
+
+- Bug fixes.
+- Documentation corrections.
+- Packaging corrections.
+- Release metadata corrections.
+- Security fixes.
+- Test fixes.
+- Operational fixes discovered from production use.
+
+Non-goals:
+
+- No new subsystems.
+- No broad refactors.
+- No schema redesign.
+- No authentication model redesign.
+- No agent architecture redesign.
+
+### v0.3.0: Operational Excellence
+
+Goal:
+
+Improve daily operator experience on top of the `v0.2.0` production foundation.
+
+The `v0.3.0` roadmap is:
+
+| Phase | Name | Purpose | Primary Deliverables |
+| --- | --- | --- | --- |
+| 45 | Session Management and Active Session Visibility | Show operators who is logged in and allow governed session revocation. | Session administration page, session list API, session revoke API, audit events. |
+| 46 | Audit Search and Filtering | Make the Activity view usable for incident review and operational investigation. | Search, filtering, time ranges, actor filters, action filters. |
+| 47 | Job Search, Filtering, and Retention | Make job history manageable as operational volume grows. | Status filters, date filters, actor filters, retention policy and retention management. |
+| 48 | Capability Templates | Reduce assignment mistakes while preserving explicit capability enforcement. | Read-only Operator, Service Operator, Identity Administrator, and Auditor templates. |
+| 49 | UI/UX Performance and Mobile Polish | Improve production usability under realistic data volume and small screens. | Polling review, large-table behavior, mobile navigation, touch interactions, loading states, empty states. |
+| 50 | v0.3.0 Release Readiness | Repeat the release candidate discipline used for `v0.2.0`. | RC decision report, release workflow verification, artifact smoke, operator smoke, production readiness decision. |
+
+### v0.3.0 Scope Guardrails
+
+Allowed:
+
+- Operator workflow improvements.
+- Read-model and filtering improvements.
+- UI clarity and performance improvements.
+- Governance-preserving administration features.
+- Documentation updates that describe the implemented product.
+
+Not allowed without a separate release decision:
+
+- SSO.
+- MFA.
+- OIDC.
+- LDAP.
+- Containers as a runtime deployment model.
+- Kubernetes.
+- HA or clustering.
+- Major database redesign.
+- Agent trust-boundary redesign.
+- Large architecture refactors.
+
+The goal of `v0.3.0` is operational excellence, not infrastructure expansion.
+
+## 3. Phase Discipline
 
 Every phase follows one rule:
 
@@ -33,7 +125,7 @@ Examples of invalid phases:
 - Refactor everything before adding service restart.
 - Add a temporary shell endpoint for testing.
 
-## 3. Required Phase Report Template
+## 4. Required Phase Report Template
 
 Create a phase note under `docs/phases/` using this naming pattern:
 
@@ -96,7 +188,7 @@ State what now works.
 Record deviations from the original plan, follow-up work, risks, or known limitations.
 ```
 
-## 4. Goal
+## 5. Goal
 
 The goal must be concrete.
 
@@ -112,7 +204,7 @@ Good:
 Add capability checks before service restart job creation.
 ```
 
-## 5. Non-Goals
+## 6. Non-Goals
 
 Non-goals protect scope.
 
@@ -122,7 +214,7 @@ Example:
 This phase does not implement service restart execution. It only adds the capability model and tests.
 ```
 
-## 6. Invariants
+## 7. Invariants
 
 Each phase must list relevant invariants from `INVARIANTS.md`.
 
@@ -136,7 +228,7 @@ Example:
 
 If the phase changes an invariant, the phase must update `INVARIANTS.md` and explain why.
 
-## 7. Negative Patterns
+## 8. Negative Patterns
 
 Each phase must explicitly state avoided negative patterns.
 
@@ -150,7 +242,7 @@ Example:
 
 This forces reviewers to check for shortcuts.
 
-## 8. Commands Run
+## 9. Commands Run
 
 Every phase must record commands actually run.
 
@@ -165,7 +257,7 @@ go test ./...        # run, passed
 npm run build        # not run, UI not touched
 ```
 
-## 9. Changelog
+## 10. Changelog
 
 Use `CHANGELOG.md` for release-level history.
 
@@ -173,7 +265,7 @@ Use phase notes for implementation-level history.
 
 A phase changelog should say what changed, not why the whole project exists.
 
-## 10. Summary
+## 11. Summary
 
 The summary states the result.
 
@@ -183,7 +275,7 @@ Example:
 The daemon now refuses startup when runtime config enables a capability that is not present in the build.
 ```
 
-## 11. Notes / Deviations
+## 12. Notes / Deviations
 
 Use this section for:
 
@@ -196,7 +288,9 @@ Use this section for:
 
 Deviations are allowed. Hidden deviations are not.
 
-## 12. Suggested Initial Phases
+## 13. Historical Initial Phase Suggestions
+
+This section is retained for historical context. It described early project bootstrapping before the `v0.2.0` Production Baseline.
 
 ### PHASE-0001: Repository Skeleton
 
