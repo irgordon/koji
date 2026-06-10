@@ -64,11 +64,13 @@ Before tagging a release candidate, use the [Release Candidate Checklist](docs/w
 
 ## Release
 
-Tagged releases are built by GitHub Actions from a clean checkout. The workflow builds Linux amd64 binaries, packages a staged rootfs archive, verifies checksums, smoke-tests the downloaded artifact set, and only then publishes release assets:
+Tagged releases are built by GitHub Actions from a clean checkout. The workflow builds Linux amd64 binaries, packages a staged rootfs archive, verifies checksums, smoke-tests the downloaded artifact set, runs a Linux operator workflow smoke gate, and only then publishes release assets.
+
+The first General Availability release is `v0.2.0`:
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 Verify downloaded release assets with:
@@ -77,7 +79,7 @@ Verify downloaded release assets with:
 shasum -a 256 -c SHA256SUMS.txt
 ```
 
-The first validated release dry run completed with `v0.1.3`, proving the tag-triggered build, smoke-test, publish, and downloaded-asset verification path.
+The first validated release dry run completed with `v0.1.3`. The first production release decision is recorded in [GA-0.2.0-Decision.md](docs/releases/GA-0.2.0-Decision.md).
 
 ## License
 

@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 This project follows a forward-only operational style. Database schema changes roll forward. Production down migrations are not supported.
 
+## [v0.2.0] - 2026-06-10
+
+### Added
+
+- First General Availability release decision for Koji.
+- Production release evidence for `v0.2.0`, based on RC.2 validation.
+
+### Validated
+
+- Backend tests, frontend tests, frontend build, documentation validation, OpenAPI validation, code quality checks, backup/restore checks, and upgrade checks.
+- Release workflow gates for build, artifact smoke, Linux operator workflow smoke, and publish sequencing.
+- Downloaded release assets, checksums, and rootfs install layout from the RC.2 validation path.
+
 ## [v0.0.0]
 
 ### Added
