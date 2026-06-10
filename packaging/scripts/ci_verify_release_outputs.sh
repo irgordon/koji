@@ -59,6 +59,7 @@ require_artifacts() {
 
 verify_executable() {
 	for binary in kojid-linux-amd64 koji-agent-linux-amd64; do
+		chmod +x "$artifact_dir/$binary"
 		if [ ! -x "$artifact_dir/$binary" ]; then
 			echo "release binary is not executable: $binary" >&2
 			exit 1
