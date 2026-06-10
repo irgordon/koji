@@ -2,16 +2,15 @@
 
 ## 1. Security Posture
 
-Koji is control-plane software. It runs on servers and can request sensitive system actions.
+Koji is control-plane software. It can observe host state and request privileged service-control intent through a governed workflow.
 
 The security posture is conservative:
 
 - Minimize privilege.
-- Isolate privileged work.
-- Require explicit authorization.
-- Record audit events.
+- Isolate privileged mutation in the local agent.
+- Require authentication, CSRF, capabilities, allowlists, jobs, approvals, and audit.
 - Fail closed.
-- Keep the codebase small enough to review.
+- Keep runtime behavior explicit and testable.
 
 ## 2. Trust Boundaries
 
@@ -19,62 +18,44 @@ The security posture is conservative:
 Browser -> kojid -> koji-agent -> Operating system
 ```
 
-The browser is untrusted.
+The browser is untrusted. `kojid` is unprivileged. `koji-agent` is the privileged boundary and must stay narrow.
 
-`kojid` is unprivileged.
+## 3. Authentication and Sessions
 
-`koji-agent` is privileged and narrow.
+Browser sessions use `koji_session` and CSRF uses `koji_csrf` plus `X-CSRF-Token`.
 
-The operating system is the final execution layer.
+Production session cookies are HttpOnly, SameSite=Strict, Secure, and scoped to `/`. Development mode keeps local HTTP testing explicit.
 
-## 3. Authentication
+Sessions have absolute and idle timeouts. Revoked, expired, and idle-expired sessions are invalid.
 
-Browser sessions must use secure cookies.
+Bootstrap is available only while no users exist.
 
-CSRF protection is required for browser-originated mutations.
+## 4. Authorization and Capabilities
 
-Session cookies use `SameSite=Strict` because Koji is an administrative control plane and does not need cross-site browser workflows. Development mode explicitly omits the `Secure` cookie flag for local HTTP testing; production keeps it enabled.
+Every protected action requires a server-side capability check. The UI may hide controls, but it is not an enforcement point.
 
-Sessions must have both an absolute TTL and an idle timeout. Revoked, expired, and idle-expired sessions are invalid.
+High-risk capabilities include:
 
-Bootstrap login is disabled by default.
+- `host.services.control`
+- `jobs.approve`
+- `audit.events.read`
+- `host.processes.read`
+- `observability.metrics.read`
 
-A first-boot bootstrap token, if generated, must be:
+Grant the minimum capability set required for the task.
 
-- One-time use.
-- Stored outside the web root.
-- Permission-restricted.
-- Removed or invalidated after use.
+## 5. Agent Security
 
-## 4. Authorization
+The daemon communicates with the agent over a Unix-domain socket.
 
-Every privileged action requires server-side authorization.
+The agent:
 
-The UI may hide controls but must not be treated as the enforcement point.
-
-Authorization must be checked before job creation or agent execution.
-
-## 5. Capability Enforcement
-
-Every privileged action requires a capability check.
-
-Allowed action is:
-
-```text
-compile-time capability ∩ runtime policy ∩ user authorization
-```
-
-If any layer denies the action, the action is denied.
-
-No handler may bypass the capability layer.
-
-## 6. Agent Security
-
-The agent must communicate over a local Unix domain socket by default.
-
-Socket permissions must restrict access to the daemon and intended service accounts.
-
-The agent must expose explicit methods only.
+- Validates socket path ownership and stale socket safety.
+- Validates service name and action.
+- Enforces an agent-side allowlist.
+- Keeps mutation disabled by default.
+- Uses bounded command execution through `internal/platform/command` when mutation is enabled.
+- Returns normalized reason codes.
 
 Forbidden:
 
@@ -84,98 +65,60 @@ execute shell string
 write arbitrary file
 read arbitrary file without policy
 accept unsanitized user input
+fallback to daemon-side mutation
 ```
 
-## 7. External Commands
+## 6. External Commands
 
-External command use must be rare and isolated to system integration packages.
+External command execution is centralized in `internal/platform/command`.
 
 Requirements:
 
-- Use `exec.CommandContext` or equivalent.
-- Use argument arrays.
-- Use the centralized platform command runner.
-- Enforce executable allowlists.
-- Validate all user-controlled inputs.
-- Use timeouts.
-- Bound output size.
-- Return structured errors.
+- No shell.
+- Explicit executable names and argument arrays.
+- Executable allowlists.
+- Validated inputs.
+- Context timeouts.
+- Bounded stdout and stderr.
+- Normalized errors.
 
-Forbidden:
+## 7. Web Security
 
-```go
-exec.Command("sh", "-c", userInput)
-```
+The unauthenticated login/bootstrap surface is minimal.
 
-## 8. Web Security
+The production SPA is served only after authentication.
 
-The unauthenticated login surface should be minimal.
+API JSON responses use no-store caching. Production responses include browser security headers including CSP, content-type protection, referrer policy, frame restrictions, and permissions policy.
 
-The authenticated SPA should only be served after authentication.
+API responses must not expose password hashes, session IDs, CSRF secrets, SQL errors, command output, or internal stack traces.
 
-Unauthenticated routes should not expose:
+## 8. Audit Requirements
 
-- JavaScript chunks.
-- Route names.
-- API schemas.
-- Initial application state.
-- Internal model names.
+Audit events are append-only and record security-sensitive actions, privileged intent, capability denial, job lifecycle changes, auth events, process-list access, and dev-mode bypasses.
 
-Use strict CSP on unauthenticated routes.
+Audit records include action, target, outcome, reason code, timestamp, request ID when available, and user ID when known.
 
-Use appropriate cache headers:
+The Activity API exposes only normalized fields.
 
-- Login HTML: no-store.
-- Authenticated SPA shell: no-store.
-- Static JS/CSS assets: cacheable with ETags or content hashes.
-- API JSON responses: no-store.
+## 9. Database, Backup, and Upgrade Security
 
-Production responses must include browser security headers:
+SQLite lives at `/var/lib/koji/koji.db` by default and stores users, sessions, capabilities, audit, jobs, approvals, bootstrap state, and migrations.
 
-- Content-Security-Policy.
-- X-Content-Type-Options.
-- Referrer-Policy.
-- X-Frame-Options or frame-ancestors.
-- Permissions-Policy.
+Migrations are embedded and checksummed. Checksum mismatch, future schema, or corrupt migration history prevents startup.
 
-## 9. Audit Requirements
+Backups use SQLite `.backup` and include configuration plus metadata. Restores must be verified before normal operation.
 
-Audit events are append-only.
-
-Record privileged mutations and security-sensitive actions.
-
-Audit records must include:
-
-- Actor.
-- Action.
-- Target.
-- Status.
-- Timestamp.
-- Error summary when applicable.
-
-Do not store secrets in audit payloads.
+Production down migrations are not supported. Rollback after schema changes requires restoring a pre-upgrade backup and installing the prior release artifact.
 
 ## 10. Secrets and Sensitive Data
 
 Secrets must not be logged.
 
-Support bundles must redact secrets.
+Support bundles and config dumps must redact secrets.
 
-Config dumps must redact secrets.
+API responses must not expose password hashes, session secrets, CSRF secrets, or bootstrap internals.
 
-API responses must not expose password hashes, session secrets, CSRF secrets, MFA secrets, or bootstrap tokens.
-
-## 11. Database Security
-
-SQLite files must live under `/var/lib/koji/` by default.
-
-File permissions must prevent non-service users from reading security state.
-
-Migrations are embedded and checksummed.
-
-Checksum mismatch is a security-relevant failure.
-
-## 12. Reporting Security Issues
+## 11. Reporting Security Issues
 
 Until a public process exists, report security issues through the private project maintainer channel.
 

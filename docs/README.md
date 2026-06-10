@@ -11,6 +11,13 @@ Start here for engineering governance:
 5. `PHASEMAP.md`
 6. `AGENTS.md`
 
+For implementation inventory, use:
+
+- `wiki/Developer/Architectural-Inventory.md`
+- `wiki/Developer/Backend-Inventory.md`
+- `wiki/Developer/Frontend-Inventory.md`
+- `wiki/Developer/Phase-History.md`
+
 Core invariant:
 
 ```text

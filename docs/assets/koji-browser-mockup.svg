@@ -1,6 +1,6 @@
 <svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
   <title id="title">Koji control panel browser mockup</title>
-  <desc id="desc">A marketing mockup of the Koji server control panel showing overview gauges, service status, job approvals, and activity.</desc>
+  <desc id="desc">A marketing mockup of the Koji server control panel showing overview gauges, governed service status, job approvals, activity, observability, backup, and upgrade safety.</desc>
   <rect width="1440" height="900" fill="#F5F7FA"/>
 
   <rect x="96" y="70" width="1248" height="760" rx="18" fill="#FFFFFF" stroke="#D9E1EA" stroke-width="2"/>
@@ -86,7 +86,7 @@
   <text x="681" y="660" fill="#92400E" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">disabled</text>
 
   <rect x="856" y="462" width="448" height="280" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
-  <text x="884" y="501" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800">Jobs and Activity</text>
+  <text x="884" y="501" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800">Jobs, Activity, and Recovery</text>
   <line x1="884" y1="526" x2="1276" y2="526" stroke="#E2E8F0"/>
   <text x="884" y="562" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">Restart ssh.service</text>
   <rect x="1158" y="543" width="92" height="28" rx="14" fill="#DBEAFE"/>
@@ -94,8 +94,11 @@
   <text x="884" y="611" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">Approve job</text>
   <rect x="1158" y="592" width="92" height="28" rx="14" fill="#D1FAE5"/>
   <text x="1175" y="611" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">audited</text>
-  <text x="884" y="660" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">Agent mutation</text>
-  <rect x="1116" y="641" width="134" height="28" rx="14" fill="#FEE2E2"/>
-  <text x="1137" y="660" fill="#B91C1C" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">disabled</text>
-  <text x="884" y="706" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="13">Request ID: req_8F2A7C19</text>
+  <text x="884" y="660" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">Backup verified</text>
+  <rect x="1158" y="641" width="92" height="28" rx="14" fill="#D1FAE5"/>
+  <text x="1175" y="660" fill="#047857" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">ready</text>
+  <text x="884" y="706" fill="#15202B" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">Schema compatibility</text>
+  <rect x="1158" y="687" width="92" height="28" rx="14" fill="#DBEAFE"/>
+  <text x="1178" y="706" fill="#1D4ED8" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700">current</text>
+  <text x="884" y="740" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="13">OpenAPI synced • Request ID: req_8F2A7C19</text>
 </svg>

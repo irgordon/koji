@@ -242,7 +242,7 @@ No auth tables beyond initial schema unless included by migration plan.
 
 Goal:
 
-Add users, sessions, CSRF, login route, and first-boot bootstrap token flow.
+Add users, sessions, CSRF, login route, and first-user bootstrap flow.
 
 Non-goals:
 

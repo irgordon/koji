@@ -89,6 +89,10 @@ Primary architecture pages:
 
 - [Local Development](Developer/Local-Development.md)
 - [Repository Layout](Developer/Repository-Layout.md)
+- [Architectural Inventory](Developer/Architectural-Inventory.md)
+- [Backend Inventory](Developer/Backend-Inventory.md)
+- [Frontend Inventory](Developer/Frontend-Inventory.md)
+- [Phase History](Developer/Phase-History.md)
 - [Frontend Architecture](Developer/Frontend-Architecture.md)
 - [Backend Architecture](Developer/Backend-Architecture.md)
 - [Agent RPC](Developer/Agent-RPC.md)

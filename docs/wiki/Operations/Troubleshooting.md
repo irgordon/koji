@@ -121,3 +121,43 @@ Likely causes: checksum mismatch, missing executable bits, invalid rootfs layout
 Verification steps: run `packaging/scripts/ci_verify_release_outputs.sh build/release`.
 
 Recovery steps: fix packaging scripts or layout and rerun release validation.
+
+## Backup Failure
+
+Symptoms: `make backup` or `packaging/scripts/backup.sh` exits non-zero.
+
+Likely causes: missing SQLite database, missing config files, missing `sqlite3`, or unwritable backup destination.
+
+Verification steps: confirm `/var/lib/koji/koji.db`, `/etc/koji/koji.yaml`, and `/etc/koji/agent.yaml` exist, then check the backup destination permissions.
+
+Recovery steps: fix the missing input or destination, then rerun backup before upgrade or maintenance.
+
+## Restore Verification Failure
+
+Symptoms: `make verify-restore` or restore workflow fails.
+
+Likely causes: SQLite integrity failure, schema mismatch, or restored row counts lower than backup metadata.
+
+Verification steps: rerun `packaging/scripts/verify_restore.sh` with the restored DB path and metadata path.
+
+Recovery steps: do not start normal operation against the failed restore. Try a known-good backup or investigate the artifact before proceeding.
+
+## Upgrade Compatibility Failure
+
+Symptoms: `make pre-upgrade-check` reports `future_schema_detected` or exits non-zero.
+
+Likely causes: the database was created by a newer Koji release, migration history is corrupt, config is missing, or the DB is unreadable.
+
+Verification steps: inspect the JSON report from `pre_upgrade_check.sh` and confirm the target release supports the reported schema.
+
+Recovery steps: stop the upgrade. Use the matching newer binary for that database or restore a pre-upgrade backup before installing the older release.
+
+## Upgrade Verification Failure
+
+Symptoms: `make verify-upgrade` fails after installing a release.
+
+Likely causes: migration did not complete, core governance tables are unreadable, or the expected schema does not match the release.
+
+Verification steps: check `/readyz`, run `packaging/scripts/verify_upgrade.sh`, and inspect service logs.
+
+Recovery steps: stop services, keep the failed database unchanged for investigation, restore the pre-upgrade backup, install the prior release artifact, and verify recovery.

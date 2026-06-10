@@ -13,7 +13,7 @@
 
 ![Koji browser UI mockup](docs/assets/koji-browser-mockup.svg)
 
-Koji is a modern control panel built for operators who want clarity, confidence, and calm control over their servers. It turns the noisy, high-risk work of host administration into a focused operating experience: see what matters, understand what changed, approve sensitive actions deliberately, and keep a durable record of the decisions that shape your environment. Koji is designed to feel trustworthy from the first screen: polished enough for daily operations, restrained enough for production systems, and structured around the idea that powerful infrastructure tools should be governed, visible, and easy to reason about.
+Koji is a modern control panel built for operators who want clarity, confidence, and calm control over their servers. It turns noisy, high-risk host administration into a governed operating experience: see what matters, understand what changed, approve sensitive actions deliberately, recover from mistakes, and keep a durable record of the decisions that shape your environment. Koji is designed to feel trustworthy from the first screen: polished enough for daily operations, restrained enough for production systems, and structured around the idea that powerful infrastructure tools should be visible, auditable, recoverable, and easy to reason about.
 
 ## Architecture Overview
 
@@ -25,6 +25,7 @@ Koji is split into clear responsibility zones:
 - The React/TypeScript frontend provides the operator workspace.
 - Service-control intent flows through capability checks, audit, durable jobs, approval, and the agent boundary.
 - Direct host command execution is centralized behind bounded platform adapters.
+- OpenAPI, backup/restore tooling, upgrade safety checks, packaging scripts, and release smoke gates support production operations.
 
 Core invariant:
 
@@ -36,7 +37,7 @@ The agent is the only privileged execution surface.
 
 ## Installation
 
-Packaged releases are not published yet, but the repository includes a staging install layout for Linux packaging work.
+The repository includes a staging install layout for Linux packaging work and a smoke-gated GitHub release workflow.
 
 For local development, build, test, and stage an install tree from the repository:
 
@@ -47,6 +48,16 @@ make install
 ```
 
 The install target writes to `build/rootfs/` by default, including binaries, static assets, example configuration, and systemd units.
+
+Operational helpers are available for release, backup, restore, and upgrade checks:
+
+```sh
+make release
+make backup
+make verify-restore
+make pre-upgrade-check
+make verify-upgrade
+```
 
 ## Release
 

@@ -62,6 +62,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Schema compatibility checks that reject future or corrupt migration history before startup migrations.
 - Pre-upgrade and post-upgrade verification scripts for governed release upgrades.
 - Upgrade procedure documentation for backup, compatibility checks, verification, and rollback.
+- Developer architectural, backend, frontend, and phase-history inventories.
 
 ### Changed
 
@@ -95,6 +96,8 @@ This project follows a forward-only operational style. Database schema changes r
 - Release workflow now validates OpenAPI before building frontend assets and release artifacts.
 - Makefile now includes `backup`, `restore`, and `verify-restore` operational targets.
 - Makefile now includes `pre-upgrade-check` and `verify-upgrade` operational targets.
+- Architecture, invariants, security, configuration, capability, job-state, audit-event, metrics, troubleshooting, README, and SVG mockup docs now reflect the Phase 36 implementation state.
+- Documentation validation now requires inventory pages, required diagrams, and non-stale local wiki links.
 
 ### Removed
 
@@ -105,7 +108,7 @@ This project follows a forward-only operational style. Database schema changes r
 ### Added
 
 - Initial governance documents.
-- Architecture constraints for daemon, agent, capabilities, configuration, database, sensors, jobs, and audit.
+- Architecture constraints for daemon, agent, capabilities, configuration, database, host observation, jobs, and audit.
 - Coding style rules for Go and TypeScript/React.
 - Invariant model for privileged execution and control-plane safety.
 - Phase reporting template.
