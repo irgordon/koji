@@ -1,27 +1,117 @@
 # Backup and Recovery
 
-[Home](../Home.md) | Related: [Database Schema](../Developer/Database-Schema.md), [Audit](../Security/Audit.md), [Jobs Page](../User-Guide/Jobs-Page.md)
+[Home](../Home.md) | Related: [Database Schema](../Developer/Database-Schema.md), [Disaster Recovery](Disaster-Recovery.md), [Release Rollback](Release-Rollback.md)
 
-## What Problem This Solves
+## What Is Backed Up
 
-The SQLite database holds users, sessions, capabilities, audit events, and jobs. Losing it loses governance state.
+Koji backups include:
 
-## How It Works
+- SQLite database: users, sessions, capabilities, jobs, approvals, audit records, migration state, and stored governance data.
+- Daemon configuration: `/etc/koji/koji.yaml`.
+- Agent configuration: `/etc/koji/agent.yaml`.
+- Metadata: timestamp, Koji version, schema version, backup format version, and record counts used for restore verification.
 
-Back up `/var/lib/koji/koji.db` and related SQLite WAL files using a process that preserves consistency.
+Backups do not include operating system packages, systemd runtime state, journal logs, release binaries, or external snapshots.
 
-## What Protects It
+## Backup Artifact
 
-Durable schema migrations and foreign keys preserve consistency when the DB is healthy.
+`packaging/scripts/backup.sh` writes an offline-restorable archive:
 
-## What Can Fail
+```text
+koji-backup-YYYYMMDD-HHMMSS.tar.gz
+```
 
-Filesystem corruption, ownership changes, disk exhaustion, or bad restores can break startup or audit writes.
+The archive contains:
 
-## How To Diagnose It
+```text
+koji-backup-YYYYMMDD-HHMMSS/
+├── database/
+│   └── koji.db
+├── config/
+│   ├── koji.yaml
+│   └── agent.yaml
+└── metadata.json
+```
 
-Check `/readyz`, service logs, and audit write failure counters.
+The database copy is created with SQLite `.backup`; do not use a plain `cp` of an active database as the backup mechanism.
 
-## How To Recover
+## Create A Backup
 
-Stop services, restore the DB files from a known-good backup, correct ownership, start services, and verify readiness.
+Run from an installed host:
+
+```sh
+make backup
+```
+
+Equivalent direct command:
+
+```sh
+packaging/scripts/backup.sh /secure/backup/location
+```
+
+The script defaults to:
+
+- Database: `/var/lib/koji/koji.db`
+- Config directory: `/etc/koji`
+- Output directory: `build/backups`
+
+For staging or tests, override paths:
+
+```sh
+KOJI_DB_PATH=/path/to/koji.db \
+KOJI_CONFIG_DIR=/path/to/etc/koji \
+packaging/scripts/backup.sh /path/to/backups
+```
+
+## Restore A Backup
+
+Restore expects either the backup directory or the `.tar.gz` archive:
+
+```sh
+BACKUP=/secure/backup/location/koji-backup-YYYYMMDD-HHMMSS.tar.gz make restore
+```
+
+Equivalent direct command:
+
+```sh
+packaging/scripts/restore.sh /secure/backup/location/koji-backup-YYYYMMDD-HHMMSS.tar.gz
+```
+
+The restore script validates the backup structure, validates the SQLite file, restores the database and configuration, and runs restore verification.
+
+## Verify A Restore
+
+Run:
+
+```sh
+make verify-restore
+```
+
+Equivalent direct command:
+
+```sh
+packaging/scripts/verify_restore.sh /var/lib/koji/koji.db
+```
+
+Verification checks:
+
+- SQLite opens successfully.
+- `PRAGMA integrity_check` returns `ok`.
+- The restored migration version matches the expected Koji schema.
+- Users, jobs, audit events, and capability assignments are present when backup metadata says they existed.
+
+## Recovery Order
+
+Use this order during production recovery:
+
+1. Stop `kojid` and `koji-agent`.
+2. Restore the backup archive.
+3. Confirm ownership and permissions for `/var/lib/koji` and `/etc/koji`.
+4. Start `koji-agent`.
+5. Start `kojid`.
+6. Check `/healthz` and `/readyz`.
+7. Confirm Jobs, Activity, and Observability pages show expected state.
+
+## Operator Notes
+
+Keep at least one backup outside the host being protected. A backup stored only on the same failed disk is not a disaster recovery artifact.

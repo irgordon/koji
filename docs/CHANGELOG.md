@@ -56,6 +56,9 @@ This project follows a forward-only operational style. Database schema changes r
 - Documentation validation script for wiki structure, Home links, stale terminology, and architecture diagrams.
 - OpenAPI 3.1 contract under `docs/api` with generated YAML, endpoint docs, error docs, and wiki API reference.
 - OpenAPI generation and validation scripts with route coverage and capability metadata checks.
+- Backup, restore, and restore verification scripts for SQLite and Koji configuration recovery.
+- Disaster recovery and release rollback operations documentation.
+- Automated packaging recovery test for backup, database deletion, restore, and verification.
 
 ### Changed
 
@@ -87,6 +90,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Release workflow now runs frontend tests before the frontend production build.
 - Documentation is now treated as a first-class subsystem with cross-linked operator, developer, and reviewer guidance.
 - Release workflow now validates OpenAPI before building frontend assets and release artifacts.
+- Makefile now includes `backup`, `restore`, and `verify-restore` operational targets.
 
 ### Removed
 

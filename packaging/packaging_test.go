@@ -1,12 +1,16 @@
 package packaging
 
 import (
+	"context"
+	"database/sql"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"koji/internal/config"
+	"koji/internal/db"
 )
 
 func TestPackagingLayoutFilesExist(t *testing.T) {
@@ -95,6 +99,33 @@ func TestMakefileDefinesReleaseTargets(t *testing.T) {
 	assertContainsAll(t, readPackagingFile(t, filepath.Join("scripts", "checksums.sh")), []string{
 		"SHA256SUMS.txt",
 	})
+}
+
+func TestMakefileDefinesBackupRestoreTargets(t *testing.T) {
+	makefile := readRepoFile(t, "Makefile")
+	assertContainsAll(t, makefile, []string{
+		"backup:",
+		"restore:",
+		"verify-restore:",
+		"packaging/scripts/backup.sh",
+		"packaging/scripts/restore.sh $(BACKUP)",
+		"packaging/scripts/verify_restore.sh",
+	})
+}
+
+func TestBackupRestoreScriptsRecoverGovernanceData(t *testing.T) {
+	requireSQLite(t)
+
+	root := t.TempDir()
+	dbPath := filepath.Join(root, "var", "lib", "koji", "koji.db")
+	configDir := filepath.Join(root, "etc", "koji")
+	backupRoot := filepath.Join(root, "backups")
+
+	createRecoveryFixture(t, dbPath, configDir)
+	archivePath := runBackupScript(t, dbPath, configDir, backupRoot)
+	removeRuntimeState(t, dbPath, configDir)
+	runRestoreScript(t, archivePath, dbPath, configDir)
+	assertRestoredGovernanceData(t, dbPath, configDir)
 }
 
 func TestReleaseWorkflowUsesPinnedToolchains(t *testing.T) {
@@ -201,6 +232,9 @@ func requiredPackagingFiles() []string {
 		filepath.Join("systemd", "koji-agent.service"),
 		filepath.Join("examples", "koji.yaml"),
 		filepath.Join("examples", "agent.yaml"),
+		filepath.Join("scripts", "backup.sh"),
+		filepath.Join("scripts", "restore.sh"),
+		filepath.Join("scripts", "verify_restore.sh"),
 		"install.sh",
 	}
 }
@@ -257,6 +291,131 @@ func readPackagingFile(t *testing.T, path string) string {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	return string(content)
+}
+
+func requireSQLite(t *testing.T) {
+	t.Helper()
+
+	if _, err := exec.LookPath("sqlite3"); err != nil {
+		t.Skip("sqlite3 is required for backup and restore scripts")
+	}
+}
+
+func createRecoveryFixture(t *testing.T, dbPath string, configDir string) {
+	t.Helper()
+
+	conn, err := db.Open(context.Background(), dbPath)
+	if err != nil {
+		t.Fatalf("open fixture database: %v", err)
+	}
+	defer conn.Close()
+
+	seedRecoveryData(t, conn)
+	if err := os.MkdirAll(configDir, 0750); err != nil {
+		t.Fatalf("create config dir: %v", err)
+	}
+	copyFile(t, filepath.Join("examples", "koji.yaml"), filepath.Join(configDir, "koji.yaml"))
+	copyFile(t, filepath.Join("examples", "agent.yaml"), filepath.Join(configDir, "agent.yaml"))
+}
+
+func seedRecoveryData(t *testing.T, conn *sql.DB) {
+	t.Helper()
+
+	statements := []string{
+		"INSERT INTO users (id, username, password_hash) VALUES (1, 'operator', 'hash')",
+		"INSERT INTO user_capabilities (user_id, capability_name) VALUES (1, 'jobs.read')",
+		"INSERT INTO jobs (id, created_by, action, target, status, approved_by, approved_at, decision_reason) VALUES ('job-1', 1, 'restart', 'kojid.service', 'approved', 1, '2026-01-01T00:00:00Z', 'maintenance')",
+		"INSERT INTO audit_events (actor, action, target, status, message, user_id, outcome, reason_code, request_id) VALUES ('operator', 'job.approved', 'jobs:job-1', 'ok', 'approved', 1, 'success', 'approved', 'req-1')",
+	}
+	for _, statement := range statements {
+		if _, err := conn.Exec(statement); err != nil {
+			t.Fatalf("seed recovery data: %v", err)
+		}
+	}
+}
+
+func runBackupScript(t *testing.T, dbPath string, configDir string, backupRoot string) string {
+	t.Helper()
+
+	output := runPackagingCommand(t, []string{
+		"KOJI_DB_PATH=" + dbPath,
+		"KOJI_CONFIG_DIR=" + configDir,
+		"KOJI_VERSION=test",
+	}, "./scripts/backup.sh", backupRoot)
+	archivePath := strings.TrimSpace(output)
+	if _, err := os.Stat(archivePath); err != nil {
+		t.Fatalf("expected backup archive %s: %v", archivePath, err)
+	}
+	return archivePath
+}
+
+func runRestoreScript(t *testing.T, archivePath string, dbPath string, configDir string) {
+	t.Helper()
+
+	runPackagingCommand(t, []string{
+		"KOJI_DB_PATH=" + dbPath,
+		"KOJI_CONFIG_DIR=" + configDir,
+	}, "./scripts/restore.sh", archivePath)
+}
+
+func assertRestoredGovernanceData(t *testing.T, dbPath string, configDir string) {
+	t.Helper()
+
+	runPackagingCommand(t, nil, "./scripts/verify_restore.sh", dbPath)
+	assertRestoredCount(t, dbPath, "users")
+	assertRestoredCount(t, dbPath, "user_capabilities")
+	assertRestoredCount(t, dbPath, "jobs")
+	assertRestoredCount(t, dbPath, "audit_events")
+	if _, err := os.Stat(filepath.Join(configDir, "koji.yaml")); err != nil {
+		t.Fatalf("expected restored daemon config: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(configDir, "agent.yaml")); err != nil {
+		t.Fatalf("expected restored agent config: %v", err)
+	}
+}
+
+func assertRestoredCount(t *testing.T, dbPath string, table string) {
+	t.Helper()
+
+	output := runPackagingCommand(t, nil, "sqlite3", dbPath, "SELECT COUNT(*) FROM "+table+";")
+	if strings.TrimSpace(output) != "1" {
+		t.Fatalf("expected one restored %s row, got %q", table, output)
+	}
+}
+
+func removeRuntimeState(t *testing.T, dbPath string, configDir string) {
+	t.Helper()
+
+	if err := os.Remove(dbPath); err != nil {
+		t.Fatalf("remove runtime database: %v", err)
+	}
+	if err := os.RemoveAll(configDir); err != nil {
+		t.Fatalf("remove runtime config: %v", err)
+	}
+}
+
+func copyFile(t *testing.T, source string, target string) {
+	t.Helper()
+
+	content, err := os.ReadFile(source)
+	if err != nil {
+		t.Fatalf("read %s: %v", source, err)
+	}
+	if err := os.WriteFile(target, content, 0640); err != nil {
+		t.Fatalf("write %s: %v", target, err)
+	}
+}
+
+func runPackagingCommand(t *testing.T, env []string, name string, args ...string) string {
+	t.Helper()
+
+	cmd := exec.Command(name, args...)
+	cmd.Env = append(os.Environ(), env...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("%s failed: %v\n%s", name, err, output)
+	}
+	return string(output)
 }
 
 func readRepoFile(t *testing.T, path string) string {

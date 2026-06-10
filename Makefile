@@ -10,7 +10,7 @@ GOOS ?= linux
 GOARCH ?= amd64
 GO_BUILD_FLAGS ?= -trimpath
 
-.PHONY: fmt test build build-web build-kojid build-agent lint openapi verify-openapi install package release checksums verify-release clean
+.PHONY: fmt test build build-web build-kojid build-agent lint openapi verify-openapi backup restore verify-restore install package release checksums verify-release clean
 
 fmt:
 	$(GO) fmt ./...
@@ -26,6 +26,15 @@ openapi:
 
 verify-openapi:
 	packaging/scripts/verify_openapi.sh
+
+backup:
+	packaging/scripts/backup.sh
+
+restore:
+	packaging/scripts/restore.sh $(BACKUP)
+
+verify-restore:
+	packaging/scripts/verify_restore.sh
 
 build: build-web build-kojid build-agent
 

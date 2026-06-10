@@ -70,6 +70,8 @@ Primary architecture pages:
 - [Health and Readiness](Operations/Health-and-Readiness.md)
 - [Observability](Operations/Observability.md)
 - [Backup and Recovery](Operations/Backup-and-Recovery.md)
+- [Disaster Recovery](Operations/Disaster-Recovery.md)
+- [Release Rollback](Operations/Release-Rollback.md)
 - [Release Operations](Operations/Release-Operations.md)
 - [Troubleshooting](Operations/Troubleshooting.md)
 
