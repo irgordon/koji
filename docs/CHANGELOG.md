@@ -59,6 +59,9 @@ This project follows a forward-only operational style. Database schema changes r
 - Backup, restore, and restore verification scripts for SQLite and Koji configuration recovery.
 - Disaster recovery and release rollback operations documentation.
 - Automated packaging recovery test for backup, database deletion, restore, and verification.
+- Schema compatibility checks that reject future or corrupt migration history before startup migrations.
+- Pre-upgrade and post-upgrade verification scripts for governed release upgrades.
+- Upgrade procedure documentation for backup, compatibility checks, verification, and rollback.
 
 ### Changed
 
@@ -91,6 +94,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Documentation is now treated as a first-class subsystem with cross-linked operator, developer, and reviewer guidance.
 - Release workflow now validates OpenAPI before building frontend assets and release artifacts.
 - Makefile now includes `backup`, `restore`, and `verify-restore` operational targets.
+- Makefile now includes `pre-upgrade-check` and `verify-upgrade` operational targets.
 
 ### Removed
 

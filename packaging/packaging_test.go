@@ -107,9 +107,13 @@ func TestMakefileDefinesBackupRestoreTargets(t *testing.T) {
 		"backup:",
 		"restore:",
 		"verify-restore:",
+		"pre-upgrade-check:",
+		"verify-upgrade:",
 		"packaging/scripts/backup.sh",
 		"packaging/scripts/restore.sh $(BACKUP)",
 		"packaging/scripts/verify_restore.sh",
+		"packaging/scripts/pre_upgrade_check.sh",
+		"packaging/scripts/verify_upgrade.sh",
 	})
 }
 
@@ -126,6 +130,63 @@ func TestBackupRestoreScriptsRecoverGovernanceData(t *testing.T) {
 	removeRuntimeState(t, dbPath, configDir)
 	runRestoreScript(t, archivePath, dbPath, configDir)
 	assertRestoredGovernanceData(t, dbPath, configDir)
+}
+
+func TestPreUpgradeCheckReportsCurrentSchema(t *testing.T) {
+	requireSQLite(t)
+
+	root := t.TempDir()
+	dbPath := filepath.Join(root, "var", "lib", "koji", "koji.db")
+	configDir := filepath.Join(root, "etc", "koji")
+	createRecoveryFixture(t, dbPath, configDir)
+
+	output := runPackagingCommand(t, []string{
+		"KOJI_DB_PATH=" + dbPath,
+		"KOJI_CONFIG_DIR=" + configDir,
+	}, "./scripts/pre_upgrade_check.sh")
+	assertContainsAll(t, output, []string{
+		`"status": "ok"`,
+		`"backupRequired": true`,
+	})
+}
+
+func TestPreUpgradeCheckRejectsFutureSchema(t *testing.T) {
+	requireSQLite(t)
+
+	root := t.TempDir()
+	dbPath := filepath.Join(root, "var", "lib", "koji", "koji.db")
+	configDir := filepath.Join(root, "etc", "koji")
+	createRecoveryFixture(t, dbPath, configDir)
+	runPackagingCommand(t, nil, "sqlite3", dbPath, "INSERT INTO schema_migrations (name, checksum) VALUES ('9999_future', 'future');")
+
+	output := runPackagingCommandExpectFailure(t, []string{
+		"KOJI_DB_PATH=" + dbPath,
+		"KOJI_CONFIG_DIR=" + configDir,
+	}, "./scripts/pre_upgrade_check.sh")
+	assertContainsAll(t, output, []string{
+		`"status": "future_schema_detected"`,
+		`"reason": "database_schema_newer_than_release"`,
+	})
+}
+
+func TestVerifyUpgradeSucceedsForCurrentSchema(t *testing.T) {
+	requireSQLite(t)
+
+	root := t.TempDir()
+	dbPath := filepath.Join(root, "var", "lib", "koji", "koji.db")
+	configDir := filepath.Join(root, "etc", "koji")
+	createRecoveryFixture(t, dbPath, configDir)
+
+	output := runPackagingCommand(t, []string{
+		"KOJI_DB_PATH=" + dbPath,
+	}, "./scripts/verify_upgrade.sh")
+	assertContainsAll(t, output, []string{
+		`"status": "ok"`,
+		`"usersReadable": true`,
+		`"jobsReadable": true`,
+		`"auditReadable": true`,
+		`"capabilitiesReadable": true`,
+	})
 }
 
 func TestReleaseWorkflowUsesPinnedToolchains(t *testing.T) {
@@ -235,6 +296,8 @@ func requiredPackagingFiles() []string {
 		filepath.Join("scripts", "backup.sh"),
 		filepath.Join("scripts", "restore.sh"),
 		filepath.Join("scripts", "verify_restore.sh"),
+		filepath.Join("scripts", "pre_upgrade_check.sh"),
+		filepath.Join("scripts", "verify_upgrade.sh"),
 		"install.sh",
 	}
 }
@@ -414,6 +477,18 @@ func runPackagingCommand(t *testing.T, env []string, name string, args ...string
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("%s failed: %v\n%s", name, err, output)
+	}
+	return string(output)
+}
+
+func runPackagingCommandExpectFailure(t *testing.T, env []string, name string, args ...string) string {
+	t.Helper()
+
+	cmd := exec.Command(name, args...)
+	cmd.Env = append(os.Environ(), env...)
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("%s unexpectedly succeeded\n%s", name, output)
 	}
 	return string(output)
 }

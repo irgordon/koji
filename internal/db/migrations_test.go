@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -69,10 +70,134 @@ func TestOpenEnablesForeignKeys(t *testing.T) {
 	}
 }
 
+func TestCheckSchemaCompatibilityReportsCurrentSchema(t *testing.T) {
+	ctx := context.Background()
+	conn := openTestDB(t)
+	defer conn.Close()
+
+	if err := RunMigrations(ctx, conn, InitialMigrations()); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+
+	report, err := CheckSchemaCompatibility(ctx, conn, InitialMigrations())
+	if err != nil {
+		t.Fatalf("check compatibility: %v", err)
+	}
+	if report.Status != CompatibilityOK {
+		t.Fatalf("expected current schema, got %s", report.Status)
+	}
+	if report.CurrentSchema != CurrentSchemaVersion(InitialMigrations()) {
+		t.Fatalf("unexpected current schema %s", report.CurrentSchema)
+	}
+	if report.PendingMigrations != 0 {
+		t.Fatalf("expected no pending migrations, got %d", report.PendingMigrations)
+	}
+}
+
+func TestCheckSchemaCompatibilityReportsUpgradeNeeded(t *testing.T) {
+	ctx := context.Background()
+	conn := openTestDB(t)
+	defer conn.Close()
+
+	oldMigrations := InitialMigrations()[:2]
+	if err := RunMigrations(ctx, conn, oldMigrations); err != nil {
+		t.Fatalf("run old migrations: %v", err)
+	}
+
+	report, err := CheckSchemaCompatibility(ctx, conn, InitialMigrations())
+	if err != nil {
+		t.Fatalf("check compatibility: %v", err)
+	}
+	if report.Status != CompatibilityMigrationRequired {
+		t.Fatalf("expected migration required, got %s", report.Status)
+	}
+	if report.PendingMigrations != len(InitialMigrations())-len(oldMigrations) {
+		t.Fatalf("unexpected pending migration count %d", report.PendingMigrations)
+	}
+}
+
+func TestOpenUpgradesOlderSchema(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "koji.db")
+	conn := openRawInitializedDB(t, path)
+	if err := RunMigrations(ctx, conn, InitialMigrations()[:2]); err != nil {
+		t.Fatalf("run old migrations: %v", err)
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatalf("close old database: %v", err)
+	}
+
+	upgraded, err := Open(ctx, path)
+	if err != nil {
+		t.Fatalf("open upgraded database: %v", err)
+	}
+	defer upgraded.Close()
+
+	report, err := CheckSchemaCompatibility(ctx, upgraded, InitialMigrations())
+	if err != nil {
+		t.Fatalf("check upgraded database: %v", err)
+	}
+	if report.Status != CompatibilityOK {
+		t.Fatalf("expected upgraded schema current, got %s", report.Status)
+	}
+}
+
+func TestOpenRejectsFutureSchema(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "koji.db")
+	conn := openRawInitializedDB(t, path)
+	if err := RunMigrations(ctx, conn, InitialMigrations()); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+	if _, err := conn.Exec("INSERT INTO schema_migrations (name, checksum) VALUES ('9999_future', 'future')"); err != nil {
+		t.Fatalf("insert future migration: %v", err)
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatalf("close future database: %v", err)
+	}
+
+	if _, err := Open(ctx, path); !errors.Is(err, ErrFutureSchema) {
+		t.Fatalf("expected future schema error, got %v", err)
+	}
+}
+
+func TestOpenRejectsCorruptMigrationHistory(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "koji.db")
+	conn := openRawInitializedDB(t, path)
+	if err := RunMigrations(ctx, conn, InitialMigrations()); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+	if _, err := conn.Exec("UPDATE schema_migrations SET checksum = 'changed' WHERE name = '0001_foundation'"); err != nil {
+		t.Fatalf("corrupt migration checksum: %v", err)
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatalf("close corrupt database: %v", err)
+	}
+
+	if _, err := Open(ctx, path); !errors.Is(err, ErrCorruptMigrationHistory) {
+		t.Fatalf("expected corrupt history error, got %v", err)
+	}
+}
+
 func openTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 
 	path := filepath.Join(t.TempDir(), "koji.db")
+	conn, err := sql.Open("sqlite3", path)
+	if err != nil {
+		t.Fatalf("open sqlite db: %v", err)
+	}
+	conn.SetMaxOpenConns(1)
+	if err := initializeConnection(context.Background(), conn); err != nil {
+		t.Fatalf("initialize sqlite db: %v", err)
+	}
+	return conn
+}
+
+func openRawInitializedDB(t *testing.T, path string) *sql.DB {
+	t.Helper()
+
 	conn, err := sql.Open("sqlite3", path)
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)

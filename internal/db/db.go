@@ -26,6 +26,10 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 		return nil, err
 	}
 
+	if _, err := CheckSchemaCompatibility(ctx, conn, InitialMigrations()); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("check schema compatibility: %w", err)
+	}
 	if err := RunMigrations(ctx, conn, InitialMigrations()); err != nil {
 		_ = conn.Close()
 		return nil, err

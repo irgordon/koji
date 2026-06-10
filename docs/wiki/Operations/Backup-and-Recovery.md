@@ -1,6 +1,6 @@
 # Backup and Recovery
 
-[Home](../Home.md) | Related: [Database Schema](../Developer/Database-Schema.md), [Disaster Recovery](Disaster-Recovery.md), [Release Rollback](Release-Rollback.md)
+[Home](../Home.md) | Related: [Database Schema](../Developer/Database-Schema.md), [Upgrade Procedure](Upgrade-Procedure.md), [Disaster Recovery](Disaster-Recovery.md), [Release Rollback](Release-Rollback.md)
 
 ## What Is Backed Up
 
@@ -115,3 +115,5 @@ Use this order during production recovery:
 ## Operator Notes
 
 Keep at least one backup outside the host being protected. A backup stored only on the same failed disk is not a disaster recovery artifact.
+
+Before every upgrade, create and verify a backup. If migration compatibility checks fail or a future schema is detected, do not start the new release against the database.

@@ -1,6 +1,6 @@
 # Release Rollback
 
-[Home](../Home.md) | Related: [Release Operations](Release-Operations.md), [Backup and Recovery](Backup-and-Recovery.md), [Disaster Recovery](Disaster-Recovery.md)
+[Home](../Home.md) | Related: [Release Operations](Release-Operations.md), [Upgrade Procedure](Upgrade-Procedure.md), [Backup and Recovery](Backup-and-Recovery.md), [Disaster Recovery](Disaster-Recovery.md)
 
 ## Purpose
 
@@ -23,9 +23,9 @@ Before installing a new release:
 If an upgrade fails:
 
 1. Stop `kojid` and `koji-agent`.
-2. Install the prior release artifact.
-3. Restore the backup taken before the upgrade.
-4. Run restore verification.
+2. Restore the backup taken before the upgrade.
+3. Install the prior release artifact.
+4. Run restore verification and upgrade verification for the restored release.
 5. Start `koji-agent`.
 6. Start `kojid`.
 7. Check `/healthz`.
@@ -46,3 +46,5 @@ After rollback, verify:
 ## Limits
 
 Rollback cannot preserve data created after the backup point. If an upgrade partially ran and accepted new operator actions, restoring the pre-upgrade backup intentionally discards those later changes.
+
+Rollback requires restore when a release applied forward migrations. Koji does not support production down migrations.
