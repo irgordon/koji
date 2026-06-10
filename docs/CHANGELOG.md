@@ -68,6 +68,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Identity administration APIs and Administration UI for users, capabilities, enable/disable state, and magic token issue.
 - Self-lockout prevention for the final active Super Admin and final active identity administrator.
 - Magic token TTL configuration with a secure bounded default.
+- Code quality audit documentation and `packaging/scripts/verify_code_quality.sh`.
 
 ### Changed
 
@@ -104,6 +105,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Architecture, invariants, security, configuration, capability, job-state, audit-event, metrics, troubleshooting, README, and SVG mockup docs now reflect the current implementation state.
 - Documentation validation now requires inventory pages, required diagrams, and non-stale local wiki links.
 - Non-Super Admin users are now denied password login and must use magic tokens.
+- Administration UI and identity store code are split into smaller responsibility-focused modules.
 
 ### Removed
 

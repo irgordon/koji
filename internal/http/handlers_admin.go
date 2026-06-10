@@ -53,7 +53,7 @@ func (h protectedHandlers) handleAdminUserCreate(w http.ResponseWriter, r *http.
 		writeAdminError(w, err)
 		return
 	}
-	h.recordIdentityAudit(r, principal.UserID, audit.ActionIdentityUserCreated, "users:"+strconv.FormatInt(user.ID, 10), "user_created")
+	h.recordIdentityAudit(r, principal.UserID, audit.ActionIdentityUserCreated, userTarget(user.ID), "user_created")
 	writeJSONValue(w, http.StatusCreated, user)
 }
 
@@ -68,10 +68,10 @@ func (h protectedHandlers) handleAdminUserDisable(w http.ResponseWriter, r *http
 	}
 	user, err := h.identity.DisableUser(r.Context(), id)
 	if err != nil {
-		h.writeAdminDecisionError(w, r, principal.UserID, "users:"+strconv.FormatInt(id, 10), err)
+		h.writeAdminDecisionError(w, r, principal.UserID, userTarget(id), err)
 		return
 	}
-	h.recordIdentityAudit(r, principal.UserID, audit.ActionIdentityUserDisabled, "users:"+strconv.FormatInt(user.ID, 10), "user_disabled")
+	h.recordIdentityAudit(r, principal.UserID, audit.ActionIdentityUserDisabled, userTarget(user.ID), "user_disabled")
 	writeJSONValue(w, http.StatusOK, user)
 }
 
@@ -89,7 +89,7 @@ func (h protectedHandlers) handleAdminUserEnable(w http.ResponseWriter, r *http.
 		writeAdminError(w, err)
 		return
 	}
-	h.recordIdentityAudit(r, principal.UserID, audit.ActionIdentityUserEnabled, "users:"+strconv.FormatInt(user.ID, 10), "user_enabled")
+	h.recordIdentityAudit(r, principal.UserID, audit.ActionIdentityUserEnabled, userTarget(user.ID), "user_enabled")
 	writeJSONValue(w, http.StatusOK, user)
 }
 
@@ -135,7 +135,7 @@ func (h protectedHandlers) handleAdminCapabilityGrant(w http.ResponseWriter, r *
 		writeAdminError(w, err)
 		return
 	}
-	h.recordIdentityAudit(r, principal.UserID, audit.ActionIdentityCapabilityGranted, "users:"+strconv.FormatInt(id, 10), request.Capability)
+	h.recordIdentityAudit(r, principal.UserID, audit.ActionIdentityCapabilityGranted, userTarget(id), request.Capability)
 	writeJSONValue(w, http.StatusOK, capabilitiesResponse{Capabilities: capabilities})
 }
 
@@ -151,10 +151,10 @@ func (h protectedHandlers) handleAdminCapabilityRevoke(w http.ResponseWriter, r 
 	capability := r.PathValue("capability")
 	capabilities, err := h.identity.RevokeCapability(r.Context(), id, capability)
 	if err != nil {
-		h.writeAdminDecisionError(w, r, principal.UserID, "users:"+strconv.FormatInt(id, 10), err)
+		h.writeAdminDecisionError(w, r, principal.UserID, userTarget(id), err)
 		return
 	}
-	h.recordIdentityAudit(r, principal.UserID, audit.ActionIdentityCapabilityRevoked, "users:"+strconv.FormatInt(id, 10), capability)
+	h.recordIdentityAudit(r, principal.UserID, audit.ActionIdentityCapabilityRevoked, userTarget(id), capability)
 	writeJSONValue(w, http.StatusOK, capabilitiesResponse{Capabilities: capabilities})
 }
 
@@ -172,7 +172,7 @@ func (h protectedHandlers) handleAdminMagicTokenIssue(w http.ResponseWriter, r *
 		writeAdminError(w, err)
 		return
 	}
-	h.recordIdentityAudit(r, principal.UserID, audit.ActionIdentityMagicTokenIssued, "users:"+strconv.FormatInt(id, 10), "token_issued")
+	h.recordIdentityAudit(r, principal.UserID, audit.ActionIdentityMagicTokenIssued, userTarget(id), "token_issued")
 	writeJSONValue(w, http.StatusCreated, token)
 }
 
@@ -236,6 +236,10 @@ func userIDPathValue(w http.ResponseWriter, r *http.Request) (int64, bool) {
 		return 0, false
 	}
 	return id, true
+}
+
+func userTarget(id int64) string {
+	return "users:" + strconv.FormatInt(id, 10)
 }
 
 func writeAdminError(w http.ResponseWriter, err error) {

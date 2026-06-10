@@ -702,7 +702,7 @@ input:focus-visible,
   border-radius: 6px;
   color: #e2e8f0;
   display: block;
-  overflow-wrap: anywhere;
+  word-break: break-word;
   padding: 12px;
 }
 

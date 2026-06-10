@@ -98,6 +98,7 @@ Primary architecture pages:
 - [Phase History](Developer/Phase-History.md)
 - [Frontend Architecture](Developer/Frontend-Architecture.md)
 - [Backend Architecture](Developer/Backend-Architecture.md)
+- [Code Quality Audit](Developer/Code-Quality-Audit.md)
 - [Agent RPC](Developer/Agent-RPC.md)
 - [Job System](Developer/Job-System.md)
 - [Database Schema](Developer/Database-Schema.md)
