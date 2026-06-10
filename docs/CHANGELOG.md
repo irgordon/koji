@@ -52,6 +52,8 @@ This project follows a forward-only operational style. Database schema changes r
 - Frontend Overview cards for control-plane health, job flow, worker activity, agent RPC, audit persistence, authentication, and readiness counters.
 - Frontend toast notifications, accessible feedback primitives, last-updated indicators, stale-data notices, and clearer policy/status explanations.
 - Frontend Vitest/jsdom test harness with Testing Library coverage for UI feedback primitives, API error normalization, Jobs, Activity, and observability cards.
+- Structured `docs/wiki` documentation portal for architecture, security, operations, user guide, developer guide, and references.
+- Documentation validation script for wiki structure, Home links, stale terminology, and architecture diagrams.
 
 ### Changed
 
@@ -81,6 +83,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Frontend polling is less aggressive for higher-cost views, with page-local failure feedback instead of full-page blocking.
 - Responsive layout, focus states, touch targets, tooltips, and table controls are improved for mobile, tablet, and desktop widths.
 - Release workflow now runs frontend tests before the frontend production build.
+- Documentation is now treated as a first-class subsystem with cross-linked operator, developer, and reviewer guidance.
 
 ### Removed
 
