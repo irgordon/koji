@@ -154,10 +154,15 @@ function errorPayloadMessage(payload: unknown): string {
 function errorCode(status: number, message: string): NormalizedErrorCode {
   const normalized = message.toLowerCase();
   if (status === 401) {
-    return 'unauthenticated';
+    return normalized.includes('expired') || normalized.includes('invalid session')
+      ? 'session_expired'
+      : 'unauthenticated';
   }
   if (normalized.includes('csrf')) {
     return 'csrf_missing_or_invalid';
+  }
+  if (normalized.includes('mutation disabled')) {
+    return 'mutation_disabled';
   }
   if (normalized.includes('not allowlisted')) {
     return 'service_not_allowlisted';
@@ -192,6 +197,8 @@ function errorText(code: NormalizedErrorCode): string {
       return 'The local Koji agent is unavailable, so privileged service actions cannot run.';
     case 'agent_not_implemented':
       return 'Service control is not enabled in this build yet.';
+    case 'mutation_disabled':
+      return 'Service mutation is disabled by Koji configuration.';
     case 'service_not_allowlisted':
       return 'That service is not in the configured Koji allowlist.';
     case 'job_conflict':
@@ -202,6 +209,8 @@ function errorText(code: NormalizedErrorCode): string {
       return 'Koji is unreachable from the browser right now.';
     case 'unexpected_response':
       return 'Koji returned an unexpected response.';
+    case 'session_expired':
+      return 'Your session expired. Sign in again before continuing.';
   }
 }
 

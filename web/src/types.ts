@@ -122,8 +122,10 @@ export type NormalizedErrorCode =
   | 'csrf_missing_or_invalid'
   | 'agent_unavailable'
   | 'agent_not_implemented'
+  | 'mutation_disabled'
   | 'service_not_allowlisted'
   | 'job_conflict'
   | 'validation_error'
   | 'network_error'
-  | 'unexpected_response';
+  | 'unexpected_response'
+  | 'session_expired';

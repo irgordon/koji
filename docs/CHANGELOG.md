@@ -50,6 +50,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Internal control-plane metrics registry for jobs, worker, agent RPC, authentication, audit writes, and readiness checks.
 - `observability.metrics.read` capability and governed `/api/observability/metrics` endpoint.
 - Frontend Overview cards for control-plane health, job flow, worker activity, agent RPC, audit persistence, authentication, and readiness counters.
+- Frontend toast notifications, accessible feedback primitives, last-updated indicators, stale-data notices, and clearer policy/status explanations.
 
 ### Changed
 
@@ -76,6 +77,8 @@ This project follows a forward-only operational style. Database schema changes r
 - Release publishing now depends on a distinct CI smoke-test job before GitHub release assets are uploaded.
 - Release smoke validation now restores executable bits after GitHub artifact download before running binary help checks.
 - Audit, job, worker, auth, readiness, and agent RPC paths now update in-process operational counters without external telemetry dependencies.
+- Frontend polling is less aggressive for higher-cost views, with page-local failure feedback instead of full-page blocking.
+- Responsive layout, focus states, touch targets, tooltips, and table controls are improved for mobile, tablet, and desktop widths.
 
 ### Removed
 

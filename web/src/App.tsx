@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
+  ApiError,
   approveJob,
   controlService,
   errorMessage,
@@ -46,8 +47,79 @@ type NavigationGroup = {
 };
 
 type JobDecision = 'approve' | 'reject';
+type ToastType = 'success' | 'error' | 'warning' | 'info';
+
+type ToastRequest = {
+  type: ToastType;
+  title: string;
+  message: string;
+};
+
+type Toast = ToastRequest & {
+  id: number;
+  persistent: boolean;
+};
+
+type ToastContextValue = {
+  notify: (toast: ToastRequest) => void;
+};
+
+const ToastContext = createContext<ToastContextValue | null>(null);
+const toastAutoDismissMs = 5000;
 
 function App() {
+  return (
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
+}
+
+function ToastProvider({ children }: { children: ReactNode }) {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const nextID = useRef(1);
+
+  const dismiss = useCallback((id: number) => {
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
+
+  const notify = useCallback((request: ToastRequest) => {
+    const toast = createToast(request, nextID.current);
+    nextID.current += 1;
+    setToasts((current) => [...current, toast].slice(-4));
+    if (!toast.persistent) {
+      window.setTimeout(() => dismiss(toast.id), toastAutoDismissMs);
+    }
+  }, [dismiss]);
+
+  const value = useMemo(() => ({ notify }), [notify]);
+
+  return (
+    <ToastContext.Provider value={value}>
+      {children}
+      <ToastRegionContent toasts={toasts} onDismiss={dismiss} />
+    </ToastContext.Provider>
+  );
+}
+
+function useToast(): ToastContextValue {
+  const value = useContext(ToastContext);
+  if (!value) {
+    throw new Error('ToastProvider is required');
+  }
+  return value;
+}
+
+function createToast(request: ToastRequest, id: number): Toast {
+  return {
+    ...request,
+    id,
+    persistent: request.type === 'error' || request.type === 'warning'
+  };
+}
+
+function AppShell() {
+  const { notify } = useToast();
   const [currentView, setCurrentView] = useState<View>(() => viewFromHash(window.location.hash));
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
   const [disk, setDisk] = useState<DiskMetrics | null>(null);
@@ -63,17 +135,20 @@ function App() {
   const [activityError, setActivityError] = useState<string | null>(null);
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [serviceControlNotice, setServiceControlNotice] = useState<string | null>(null);
+  const [overviewUpdatedAt, setOverviewUpdatedAt] = useState<Date | null>(null);
+  const [jobsUpdatedAt, setJobsUpdatedAt] = useState<Date | null>(null);
+  const [activityUpdatedAt, setActivityUpdatedAt] = useState<Date | null>(null);
 
   useHashNavigation(setCurrentView);
-  usePolling('metrics', fetchMetrics, setMetrics, setApiError, 2000);
-  usePolling('disk', fetchDisk, setDisk, setApiError, 10000);
-  usePolling('health', fetchHealth, setHealth, setApiError, 15000);
-  usePolling('readiness', fetchReadiness, setReadiness, setApiError, 15000);
-  usePolling('observability metrics', fetchObservabilityMetrics, setObservability, setApiError, 7000);
-  usePolling('services', fetchServices, setServices, setApiError, 5000);
-  usePolling('processes', fetchProcesses, setProcesses, setApiError, 4000);
-  usePolling('jobs', fetchJobs, setJobs, setJobsError, 7000, currentView === 'jobs');
-  usePolling('activity', fetchActivity, setActivity, setActivityError, 10000, currentView === 'activity');
+  usePolling('metrics', fetchMetrics, setMetrics, setApiError, 5000, true, setOverviewUpdatedAt, notify);
+  usePolling('disk', fetchDisk, setDisk, setApiError, 30000, true, setOverviewUpdatedAt, notify);
+  usePolling('health', fetchHealth, setHealth, setApiError, 15000, true, setOverviewUpdatedAt, notify);
+  usePolling('readiness', fetchReadiness, setReadiness, setApiError, 15000, true, setOverviewUpdatedAt, notify);
+  usePolling('observability metrics', fetchObservabilityMetrics, setObservability, setApiError, 15000, true, setOverviewUpdatedAt, notify);
+  usePolling('services', fetchServices, setServices, setApiError, 15000, currentView === 'services', undefined, notify);
+  usePolling('processes', fetchProcesses, setProcesses, setApiError, 30000, currentView === 'processes', undefined, notify);
+  usePolling('jobs', fetchJobs, setJobs, setJobsError, 15000, currentView === 'jobs', setJobsUpdatedAt, notify);
+  usePolling('activity', fetchActivity, setActivity, setActivityError, 60000, currentView === 'activity', setActivityUpdatedAt, notify);
 
   const sortedProcesses = useMemo(
     () => sortedProcessList(processes, processSort),
@@ -85,10 +160,17 @@ function App() {
       const job = await controlService(service, action);
       setApiError(null);
       setServiceControlNotice(`Job ${job.jobId} queued for ${action} on ${service}.`);
+      notify({
+        type: 'success',
+        title: 'Job created',
+        message: `Koji queued the ${action} request. It still needs approval before it can run.`
+      });
       setServices(await fetchServices());
       setJobs(await fetchJobs());
     } catch (error: unknown) {
-      setServiceControlNotice(errorMessage(error, 'Service control transaction failed'));
+      const message = errorMessage(error, 'Service control transaction failed');
+      setServiceControlNotice(message);
+      notify({ type: 'error', title: 'Service control failed', message });
     }
   }
 
@@ -98,16 +180,25 @@ function App() {
       setJobs((currentJobs) => replaceJob(currentJobs, decidedJob));
       setJobs(await fetchJobs());
       setJobsError(null);
+      notify({
+        type: 'success',
+        title: decision === 'approve' ? 'Job approved' : 'Job rejected',
+        message: decision === 'approve'
+          ? 'Koji marked the job approved. The worker can advance it when the agent path is available.'
+          : 'Koji rejected the queued job. It will not advance toward execution.'
+      });
     } catch (error: unknown) {
-      setJobsError(errorMessage(error, 'Job decision failed'));
+      const message = errorMessage(error, 'Job decision failed');
+      setJobsError(message);
+      notify({ type: 'error', title: 'Job decision failed', message });
     }
   }
 
   return (
     <div className="app">
-      <aside className="sidebar">
+      <aside className="sidebar" aria-label="Primary navigation">
         <div className="brand">Koji</div>
-        <nav className="nav-menu">
+        <nav className="nav-menu" aria-label="Koji sections">
           {navigationGroups.map((group) => (
             <div key={group.title} className="nav-group">
               <div className="nav-group-title">{group.title}</div>
@@ -116,6 +207,7 @@ function App() {
                   key={view}
                   className={`nav-item ${currentView === view ? 'active' : ''}`}
                   onClick={() => navigateTo(view)}
+                  aria-current={currentView === view ? 'page' : undefined}
                 >
                   {viewLabel(view)}
                 </button>
@@ -137,7 +229,7 @@ function App() {
           {metrics && <div className="quick-stats">Uptime: {formatUptime(metrics.uptime)}</div>}
         </header>
 
-        <main className="main-content">
+        <main className="main-content" tabIndex={-1}>
           {apiError && <ErrorBanner message={apiError} />}
 
           {currentView === 'overview' && (
@@ -147,6 +239,7 @@ function App() {
               health={health}
               readiness={readiness}
               observability={observability}
+              updatedAt={overviewUpdatedAt}
             />
           )}
           {currentView === 'services' && (
@@ -164,9 +257,11 @@ function App() {
               onSortChange={setProcessSort}
             />
           )}
-          {currentView === 'jobs' && <JobsView jobs={jobs} error={jobsError} onDecision={requestJobDecision} />}
+          {currentView === 'jobs' && (
+            <JobsView jobs={jobs} error={jobsError} updatedAt={jobsUpdatedAt} onDecision={requestJobDecision} />
+          )}
           {currentView === 'activity' && (
-            <ActivityView events={activity} error={activityError} />
+            <ActivityView events={activity} error={activityError} updatedAt={activityUpdatedAt} />
           )}
           {currentView === 'settings' && <SettingsView />}
         </main>
@@ -191,8 +286,12 @@ function usePolling<T>(
   setValue: (value: T) => void,
   setApiError: (message: string | null) => void,
   intervalMs: number,
-  enabled = true
+  enabled = true,
+  setLastUpdated?: (date: Date) => void,
+  notify?: (toast: ToastRequest) => void
 ) {
+  const lastError = useRef<string | null>(null);
+
   useEffect(() => {
     if (!enabled) {
       return;
@@ -204,9 +303,17 @@ function usePolling<T>(
         const value = await fetcher(controller.signal);
         setValue(value);
         setApiError(null);
+        setLastUpdated?.(new Date());
+        lastError.current = null;
       } catch (error: unknown) {
         if (!isAbortError(error)) {
-          setApiError(errorMessage(error, `Failed to fetch ${label}`));
+          const message = errorMessage(error, `Failed to fetch ${label}`);
+          setApiError(message);
+          const toast = pollingToast(error, label, message);
+          if (toast && message !== lastError.current) {
+            notify?.(toast);
+            lastError.current = message;
+          }
         }
       }
     }
@@ -217,7 +324,7 @@ function usePolling<T>(
       controller.abort();
       window.clearInterval(interval);
     };
-  }, [enabled, fetcher, intervalMs, label, setApiError, setValue]);
+  }, [enabled, fetcher, intervalMs, label, notify, setApiError, setLastUpdated, setValue]);
 }
 
 function replaceJob(jobs: JobRecord[], updatedJob: JobRecord): JobRecord[] {
@@ -229,22 +336,25 @@ function Overview({
   disk,
   health,
   readiness,
-  observability
+  observability,
+  updatedAt
 }: {
   metrics: SystemMetrics | null;
   disk: DiskMetrics | null;
   health: HealthResponse | null;
   readiness: HealthResponse | null;
   observability: ObservabilityMetrics | null;
+  updatedAt: Date | null;
 }) {
   return (
     <div className="page-stack">
+      <PanelMeta updatedAt={updatedAt} />
       <section className="dashboard-grid">
         <MetricCard
           title="CPU"
           value={metrics ? `${metrics.cpuUsage.toFixed(1)}%` : '—'}
           detail="Current host CPU utilization."
-          tooltip="CPU percentage is already-authorized telemetry from the Koji metrics API."
+          tooltip="CPU usage shows current authorized host load. If it stays high, review running processes and queued jobs before approving more work."
         >
           <Gauge value={metrics?.cpuUsage ?? 0} tone="cpu" label="CPU" />
         </MetricCard>
@@ -252,7 +362,7 @@ function Overview({
           title="Memory"
           value={metrics ? `${formatGB(metrics.memUsed)} / ${formatGB(metrics.memTotal)} GB` : '—'}
           detail={metrics ? `${metrics.memUsagePct.toFixed(1)}% used` : 'Waiting for metrics'}
-          tooltip="Memory usage compares used memory against total memory reported by the host."
+          tooltip="Memory usage compares used memory against total memory. If memory is tight, inspect process visibility and avoid approving disruptive jobs."
         >
           <Gauge value={metrics?.memUsagePct ?? 0} tone="memory" label="Memory" />
         </MetricCard>
@@ -260,7 +370,7 @@ function Overview({
           title="Disk"
           value={disk ? `${formatBytesAsGB(disk.usedBytes)} / ${formatBytesAsGB(disk.totalBytes)} GB` : '—'}
           detail={disk ? `${disk.usagePct.toFixed(1)}% used on ${disk.path}` : 'Waiting for disk metrics'}
-          tooltip="Disk usage is reported for the filesystem exposed by the authorized disk API."
+          tooltip="Disk usage shows the configured filesystem. If it is nearly full, pause service changes until storage pressure is understood."
         >
           <Gauge value={disk?.usagePct ?? 0} tone="filesystem" label="Disk" />
         </MetricCard>
@@ -293,7 +403,7 @@ function MetricCard({
   children?: ReactNode;
 }) {
   return (
-    <div className="metric-card">
+    <article className="metric-card" aria-label={title}>
       <div className="card-heading">
         <h3>{title}</h3>
         {tooltip && <Tooltip text={tooltip} />}
@@ -305,7 +415,7 @@ function MetricCard({
           <small>{detail}</small>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -325,9 +435,12 @@ function OperationalStatus({ title, response }: { title: string; response: Healt
     return <LoadingState label={`${title} check pending`} />;
   }
   return (
-    <div className="status-panel">
+    <section className="status-panel" aria-label={`${title} status`}>
       <div className="status-panel-header">
-        <span>{title}</span>
+        <span>
+          {title}
+          <Tooltip text={statusTooltip(title, response.status)} />
+        </span>
         <StatusBadge status={response.status} />
       </div>
       <div className="check-list">
@@ -338,7 +451,7 @@ function OperationalStatus({ title, response }: { title: string; response: Healt
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -372,7 +485,7 @@ function ControlPlaneObservability({
         title="Agent RPC"
         value={`${counter(metrics, 'agent_rpc_requests_total')} requests`}
         detail={`${counter(metrics, 'agent_rpc_failures_total')} failures`}
-        tooltip="Agent RPC metrics cover kojid calls across the Unix socket boundary."
+        tooltip="Koji cannot run approved service jobs unless the local agent can be reached. Start or repair koji-agent if this is degraded."
       >
         <StatusBadge status={agentStatus(metrics, readiness)} label={plainAgentStatus(metrics, readiness)} />
       </MetricCard>
@@ -380,7 +493,7 @@ function ControlPlaneObservability({
         title="Audit Writes"
         value={`${counter(metrics, 'audit_writes_total')} writes`}
         detail={`${counter(metrics, 'audit_write_failures_total')} failures`}
-        tooltip="Audit metrics show whether governance events are being persisted."
+        tooltip="Audit writes show whether Koji is recording governed actions. If writes fail, pause approvals until the database is healthy."
       >
         <StatusBadge status={auditStatus(metrics)} label={plainAuditStatus(metrics)} />
       </MetricCard>
@@ -388,13 +501,13 @@ function ControlPlaneObservability({
         title="Authentication"
         value={`${counter(metrics, 'auth_login_success_total')} successes`}
         detail={`${counter(metrics, 'auth_login_failure_total')} failed login attempts`}
-        tooltip="Authentication metrics count login outcomes without exposing usernames or session data."
+        tooltip="Authentication metrics count login outcomes without exposing usernames. Repeated failures may indicate expired credentials or unauthorized access attempts."
       />
       <MetricCard
         title="Readiness Checks"
         value={`${counter(metrics, 'readiness_checks_total')} checks`}
         detail={readinessFailureDetail(metrics)}
-        tooltip="Readiness counters summarize dependency failures without exposing sensitive connection details."
+        tooltip="Readiness checks summarize DB, migration, and agent dependency health. Failed DB or migration checks require operator attention before changes are approved."
       />
     </section>
   );
@@ -412,11 +525,13 @@ function ServicesView({
   return (
     <div className="page-stack">
       {controlNotice && (
-        <ErrorBanner
+        <InlineNotice
+          tone="info"
           message={controlNotice}
-          tooltip="Service control depends on the local Koji agent and remains unavailable when the agent is down or the build returns not implemented."
+          tooltip="Service control creates a durable job. It still requires approval, and the local agent must be reachable with mutation enabled before execution can happen."
         />
       )}
+      <PermissionNotice message="Only services configured in the Koji allowlist are visible here. Other systemd units are hidden by policy." />
       <div className="services-grid">
         {services.length === 0 && (
           <EmptyState title="No allowlisted services visible" detail="Only services configured in the backend allowlist appear here." />
@@ -428,11 +543,12 @@ function ServicesView({
               <StatusBadge status={service.active ? 'ok' : 'degraded'} label={service.active ? 'active' : 'inactive'} />
             </div>
             <div className="service-state">{service.subState}</div>
+            <p className="help-text">Control buttons create approval-required jobs. They do not execute directly from the browser.</p>
             <div className="service-controls">
-              <button onClick={() => onControl(service.name, service.active ? 'stop' : 'start')}>
+              <button type="button" onClick={() => onControl(service.name, service.active ? 'stop' : 'start')}>
                 {service.active ? 'Stop' : 'Start'}
               </button>
-              <button onClick={() => onControl(service.name, 'restart')}>Restart</button>
+              <button type="button" onClick={() => onControl(service.name, 'restart')}>Restart</button>
             </div>
           </div>
         ))}
@@ -454,12 +570,13 @@ function ProcessesView({
 }) {
   return (
     <div className="page-stack">
+      <PermissionNotice message="Process details can be hidden by policy. Koji shows only the fields authorized by the backend." />
       <ProcessSummaryChart processes={processes} />
       <div className="process-container">
         <div className="table-controls">
           <span>
             Visible Processes: <strong>{processes.length}</strong>
-            <Tooltip text="Some fields are redacted by backend process visibility policy. The UI does not reconstruct or request hidden data." />
+            <Tooltip text="Some fields are hidden by process visibility policy. Use Settings to confirm policy intent; the UI cannot reveal redacted fields." />
           </span>
           <div className="toggle-group">
             <button
@@ -504,10 +621,10 @@ function ProcessesView({
                     <span className={`state-badge ${process.state}`}>{process.state}</span>
                   </td>
                   <td className="font-tabular muted-cell" style={{ textAlign: 'right' }}>
-                    {process.rss === undefined ? 'redacted' : `${formatMB(process.rss)} MB`}
+                    {process.rss === undefined ? <HiddenByPolicy /> : `${formatMB(process.rss)} MB`}
                   </td>
                   <td className="font-tabular muted-cell" style={{ textAlign: 'right' }}>
-                    {process.memoryPct === undefined ? 'redacted' : `${process.memoryPct.toFixed(1)}%`}
+                    {process.memoryPct === undefined ? <HiddenByPolicy /> : `${process.memoryPct.toFixed(1)}%`}
                   </td>
                 </tr>
               ))}
@@ -542,9 +659,17 @@ function ProcessSummaryChart({ processes }: { processes: ProcessInfo[] }) {
   );
 }
 
-function ActivityView({ events, error }: { events: ActivityEvent[]; error: string | null }) {
+function ActivityView({
+  events,
+  error,
+  updatedAt
+}: {
+  events: ActivityEvent[];
+  error: string | null;
+  updatedAt: Date | null;
+}) {
   if (error) {
-    return <ErrorBanner message={error} />;
+    return <InlineError message={error} />;
   }
   if (events.length === 0) {
     return <EmptyState title="No activity available" detail="Audit activity appears here when your account has the read capability." />;
@@ -553,8 +678,9 @@ function ActivityView({ events, error }: { events: ActivityEvent[]; error: strin
     <div className="activity-panel">
       <div className="card-heading">
         <h3>Recent Activity</h3>
-        <Tooltip text="Activity is a normalized audit read model. Raw actor, remote address, and internal error details are not exposed." />
+        <Tooltip text="Activity shows normalized audit events. Raw actor metadata, remote address, and internal error details are intentionally hidden." />
       </div>
+      <PanelMeta updatedAt={updatedAt} />
       <div className="table-wrapper">
         <table className="activity-table">
           <thead>
@@ -592,16 +718,18 @@ function ActivityView({ events, error }: { events: ActivityEvent[]; error: strin
 function JobsView({
   jobs,
   error,
+  updatedAt,
   onDecision
 }: {
   jobs: JobRecord[];
   error: string | null;
+  updatedAt: Date | null;
   onDecision: (job: JobRecord, decision: JobDecision, reason: string) => Promise<void>;
 }) {
   const [reasons, setReasons] = useState<Record<string, string>>({});
 
   if (error) {
-    return <ErrorBanner message={error} />;
+    return <InlineError message={error} />;
   }
   if (jobs.length === 0) {
     return <EmptyState title="No jobs visible" detail="Service-control requests appear here after they are accepted as durable jobs." />;
@@ -610,8 +738,9 @@ function JobsView({
     <div className="activity-panel">
       <div className="card-heading">
         <h3>Jobs</h3>
-        <Tooltip text="Jobs persist service-control intent before any privileged execution is enabled." />
+        <Tooltip text="Jobs persist service-control intent. Queued jobs need human approval before the worker can advance them." />
       </div>
+      <PanelMeta updatedAt={updatedAt} />
       <div className="table-wrapper">
         <table className="activity-table">
           <thead>
@@ -671,17 +800,21 @@ function JobDecisionControls({
   }
   return (
     <div className="job-decision-controls">
+      <span className="sr-only" id={`decision-help-${job.id}`}>
+        Approval lets the worker advance this job. Rejection stops it from running.
+      </span>
       <input
         aria-label={`Decision reason for ${job.id}`}
+        aria-describedby={`decision-help-${job.id}`}
         maxLength={512}
         placeholder="Reason"
         value={reason}
         onChange={(event) => onReasonChange(event.target.value)}
       />
-      <button type="button" onClick={() => onDecision(job, 'approve', reason)}>
+      <button type="button" onClick={() => onDecision(job, 'approve', reason)} aria-describedby={`decision-help-${job.id}`}>
         Approve
       </button>
-      <button type="button" onClick={() => onDecision(job, 'reject', reason)}>
+      <button type="button" onClick={() => onDecision(job, 'reject', reason)} aria-describedby={`decision-help-${job.id}`}>
         Reject
       </button>
     </div>
@@ -737,6 +870,55 @@ function readinessFailureDetail(metrics: ObservabilityMetrics): string {
   return `${dbFailures} DB failures, ${migrationFailures} migration failures, ${agentDegraded} agent degraded`;
 }
 
+function PanelMeta({ updatedAt }: { updatedAt: Date | null }) {
+  return (
+    <div className="panel-meta">
+      <LastUpdated value={updatedAt} />
+      <StaleDataNotice value={updatedAt} />
+    </div>
+  );
+}
+
+function LastUpdated({ value }: { value: Date | null }) {
+  return <span className="last-updated">{value ? `Last updated ${formatTimeOnly(value)}` : 'Waiting for first update'}</span>;
+}
+
+function StaleDataNotice({ value }: { value: Date | null }) {
+  if (!value || Date.now() - value.getTime() < 120000) {
+    return null;
+  }
+  return <span className="stale-data-notice">Data may be stale. Check connection status before taking action.</span>;
+}
+
+function InlineError({ message }: { message: string }) {
+  return <InlineNotice tone="error" message={message} />;
+}
+
+function PermissionNotice({ message }: { message: string }) {
+  return <InlineNotice tone="info" message={message} />;
+}
+
+function InlineNotice({
+  tone,
+  message,
+  tooltip
+}: {
+  tone: 'error' | 'info' | 'warning';
+  message: string;
+  tooltip?: string;
+}) {
+  return (
+    <div className={`inline-notice ${tone}`} role={tone === 'error' ? 'alert' : 'status'}>
+      <span>{noticePrefix(tone)} {message}</span>
+      {tooltip && <Tooltip text={tooltip} />}
+    </div>
+  );
+}
+
+function HiddenByPolicy() {
+  return <span className="policy-hidden">Hidden by policy</span>;
+}
+
 function ConnectionStatus({ apiError, metrics }: { apiError: string | null; metrics: SystemMetrics | null }) {
   if (apiError) {
     return <span className="status error">● Disconnected</span>;
@@ -748,12 +930,12 @@ function ConnectionStatus({ apiError, metrics }: { apiError: string | null; metr
 }
 
 function StatusBadge({ status, label }: { status: HealthStatus; label?: string }) {
-  return <span className={`status-badge ${status}`}>{label ?? status}</span>;
+  return <span className={`status-badge ${status}`}>{statusIcon(status)} {label ?? statusLabel(status)}</span>;
 }
 
 function ErrorBanner({ message, tooltip }: { message: string; tooltip?: string }) {
   return (
-    <div className="error-banner">
+    <div className="error-banner" role="alert">
       <span>{message}</span>
       {tooltip && <Tooltip text={tooltip} />}
     </div>
@@ -761,10 +943,11 @@ function ErrorBanner({ message, tooltip }: { message: string; tooltip?: string }
 }
 
 function Tooltip({ text }: { text: string }) {
+  const id = useTooltipID();
   return (
-    <span className="tooltip" tabIndex={0} aria-label={text}>
+    <span className="tooltip" tabIndex={0} aria-label="Help" aria-describedby={id}>
       ?
-      <span className="tooltip-content">{text}</span>
+      <span id={id} className="tooltip-content" role="tooltip">{text}</span>
     </span>
   );
 }
@@ -779,15 +962,49 @@ function EmptyState({ title, detail }: { title: string; detail: string }) {
 }
 
 function LoadingState({ label }: { label: string }) {
-  return <div className="loading-state">{label}</div>;
+  return <div className="loading-state" role="status" aria-live="polite">{label}</div>;
+}
+
+function ToastRegionContent({
+  toasts,
+  onDismiss
+}: {
+  toasts: Toast[];
+  onDismiss: (id: number) => void;
+}) {
+  return (
+    <div className="toast-region" aria-live="polite" aria-label="Notifications">
+      {toasts.map((toast) => (
+        <div key={toast.id} className={`toast ${toast.type}`} role={toast.type === 'error' ? 'alert' : 'status'}>
+          <div>
+            <strong>{toast.title}</strong>
+            <p>{toast.message}</p>
+          </div>
+          <button type="button" onClick={() => onDismiss(toast.id)} aria-label={`Dismiss ${toast.title}`}>
+            Dismiss
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function useTooltipID(): string {
+  const idRef = useRef<string | null>(null);
+  if (idRef.current === null) {
+    idRef.current = `tooltip-${Math.random().toString(36).slice(2)}`;
+  }
+  return idRef.current;
 }
 
 function SettingsView() {
   return (
     <div className="settings-grid">
-      <PolicyCard title="Session Policy" detail="Session lifetime and idle timeout are enforced by the backend." />
-      <PolicyCard title="Process Visibility" detail="Process fields are redacted unless the backend policy exposes them." />
-      <PolicyCard title="Service Allowlist" detail="Only allowlisted systemd units are visible or eligible for control intent." />
+      <PolicyCard title="Session Policy" detail="Session lifetime and idle timeout are enforced by the backend. If a session expires, refresh and sign in again before continuing." />
+      <PolicyCard title="Process Visibility" detail="Process fields are redacted unless the backend policy exposes them. Hidden fields cannot be recovered by the UI." />
+      <PolicyCard title="Service Allowlist" detail="Only allowlisted systemd units are visible or eligible for control intent. Missing services require a configuration change." />
+      <PolicyCard title="Capabilities" detail="Authenticated users still need explicit capabilities for protected views and job decisions." />
+      <PolicyCard title="Agent Boundary" detail="The web daemon queues and approves intent. The local agent owns any future privileged mutation path." />
     </div>
   );
 }
@@ -833,6 +1050,79 @@ function viewSubtitle(view: View): string {
     case 'settings':
       return 'Read-only policy summary.';
   }
+}
+
+function toastTypeForMessage(message: string): ToastType {
+  return message.includes('permission') || message.includes('Sign in') || message.includes('session')
+    ? 'warning'
+    : 'error';
+}
+
+function pollingToast(error: unknown, label: string, message: string): ToastRequest | null {
+  if (!(error instanceof ApiError)) {
+    return null;
+  }
+  if (!shouldToastPollingError(error)) {
+    return null;
+  }
+  return {
+    type: toastTypeForMessage(message),
+    title: `${humanizeKey(label)} needs attention`,
+    message
+  };
+}
+
+function shouldToastPollingError(error: ApiError): boolean {
+  return (
+    error.code === 'network_error' ||
+    error.code === 'unauthenticated' ||
+    error.code === 'forbidden' ||
+    error.code === 'csrf_missing_or_invalid' ||
+    error.code === 'session_expired'
+  );
+}
+
+function noticePrefix(tone: 'error' | 'info' | 'warning'): string {
+  switch (tone) {
+    case 'error':
+      return 'Error:';
+    case 'warning':
+      return 'Warning:';
+    case 'info':
+      return 'Note:';
+  }
+}
+
+function statusIcon(status: HealthStatus): string {
+  switch (status) {
+    case 'ok':
+      return 'OK';
+    case 'degraded':
+      return 'WARN';
+    case 'fail':
+      return 'FAIL';
+  }
+}
+
+function statusLabel(status: HealthStatus): string {
+  switch (status) {
+    case 'ok':
+      return 'Healthy';
+    case 'degraded':
+      return 'Degraded';
+    case 'fail':
+      return 'Failed';
+  }
+}
+
+function statusTooltip(title: string, status: HealthStatus): string {
+  if (title === 'Readiness' && status === 'degraded') {
+    return 'Koji is running, but one dependency is degraded. Check the agent before approving jobs.';
+  }
+  if (status === 'fail') {
+    return `${title} failed. Pause operational changes and inspect the failing check.`;
+  }
+  return `${title} is healthy enough for normal operation.`;
 }
 
 function plainJobAction(action: string): string {
@@ -911,6 +1201,10 @@ function formatTimestamp(value: string): string {
     return value;
   }
   return date.toLocaleString();
+}
+
+function formatTimeOnly(value: Date): string {
+  return value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 function sortedProcessList(processes: ProcessInfo[], processSort: ProcessSort): ProcessInfo[] {
