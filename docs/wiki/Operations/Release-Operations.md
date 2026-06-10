@@ -1,6 +1,6 @@
 # Release Operations
 
-[Home](../Home.md) | Related: [Release Architecture](../Architecture/Release-Architecture.md), [Release Workflow](../Developer/Release-Workflow.md), [Troubleshooting](Troubleshooting.md)
+[Home](../Home.md) | Related: [Release Architecture](../Architecture/Release-Architecture.md), [Release Workflow](../Developer/Release-Workflow.md), [Release Candidate Checklist](Release-Candidate-Checklist.md), [Troubleshooting](Troubleshooting.md)
 
 ## What Problem This Solves
 
@@ -9,6 +9,8 @@ Release operations ensure users receive artifacts that were built, tested, check
 ## How It Works
 
 Tags matching `v*` trigger the release workflow. CI builds binaries and rootfs, verifies checksums and layout, then publishes assets after smoke tests pass.
+
+Before tagging, run the [Release Candidate Checklist](Release-Candidate-Checklist.md) against the candidate build and staging state.
 
 ## What Protects It
 

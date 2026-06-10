@@ -8,7 +8,7 @@ The Jobs page shows service-control intent as a durable lifecycle instead of hid
 
 ## How It Works
 
-Queued jobs can be approved or rejected with a reason. Approved jobs can be claimed by the worker and advanced through the agent path.
+Jobs start as `queued`, shown to operators as "Waiting for approval." Queued jobs can be approved or rejected with a reason. Approved jobs can be claimed by the worker and advanced through the agent path.
 
 ## What Protects It
 
@@ -16,7 +16,7 @@ Viewing jobs requires `jobs.read`. Approving or rejecting jobs requires `jobs.ap
 
 ## What Can Fail
 
-Jobs can remain queued, remain approved, fail, or report not implemented.
+Jobs can remain waiting for approval, remain approved while waiting for the worker, run, complete, fail, be rejected, or report agent not implemented.
 
 ## How To Diagnose It
 
@@ -24,4 +24,4 @@ Inspect status, reason, request ID, Activity rows, and observability counters.
 
 ## How To Recover
 
-Approve or reject queued jobs, restart the worker daemon, fix the agent, or recreate failed jobs after resolving the cause.
+Approve or reject jobs waiting for approval, restart the worker daemon, fix the agent, or recreate failed jobs after resolving the cause.

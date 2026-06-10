@@ -2,7 +2,7 @@
 
 [Home](../Home.md) | Related: [Architectural Inventory](Architectural-Inventory.md), [Repository Layout](Repository-Layout.md), [Testing Strategy](Testing-Strategy.md)
 
-This is a contributor-oriented evolution map. It summarizes architectural milestones through Phase 38 without requiring every phase report to be read first.
+This is a contributor-oriented evolution map. It summarizes architectural milestones through Phase 42 without requiring every phase report to be read first.
 
 | Phase | Purpose | Major Deliverables | Breaking Changes | Documentation Impact |
 | --- | --- | --- | --- | --- |
@@ -44,6 +44,10 @@ This is a contributor-oriented evolution map. It summarizes architectural milest
 | 36 | Add upgrade safety. | Schema compatibility checks, pre-upgrade and verify-upgrade scripts. | Future/corrupt schemas refuse startup. | Upgrade and rollback docs updated. |
 | 37 | Synchronize architecture documentation. | Implementation inventories, references, wiki validation, and docs reconciliation. | None. | Documentation drift reduced across wiki, OpenAPI, and governance docs. |
 | 38 | Add governed identity administration. | Super Admin bootstrap, `identity.users.manage`, managed users, magic tokens, admin APIs, Administration page, self-lockout prevention. | Non-Super Admin password login is denied. | Identity, capability, audit, API, and user-guide docs updated. |
+| 39 | Reduce complexity after identity work. | Administration view extraction, focused identity files, code-quality verifier. | None. | Code quality audit docs added. |
+| 40 | Validate operator workflows. | Production readiness review and clearer operator-facing UI language. | None. | Phase 40 readiness report added. |
+| 41 | Validate security model. | Threat model and security review covering residual risks and recommended actions. | None. | Security review and threat model updated. |
+| 42 | Refresh documentation for release-candidate readiness. | Documentation reconciliation, release candidate checklist, stronger docs validation. | None. | Wiki, operations, references, and validation script aligned. |
 
 ## Reading Order
 

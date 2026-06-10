@@ -71,6 +71,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Code quality audit documentation and `packaging/scripts/verify_code_quality.sh`.
 - Production readiness review for identity, jobs, observability, backup/restore, and page-level operator workflows.
 - Security review and repo-grounded threat model validation.
+- Release candidate checklist and final documentation reconciliation after Phases 38-41.
 
 ### Changed
 
@@ -109,6 +110,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Non-Super Admin users are now denied password login and must use magic tokens.
 - Administration UI and identity store code are split into smaller responsibility-focused modules.
 - Operator-facing job, agent, service-control, magic-token, capability, and error messages now use clearer action-oriented language.
+- Wiki navigation, phase history, reference pages, and operations guidance now align with release-candidate readiness workflows.
 
 ### Removed
 

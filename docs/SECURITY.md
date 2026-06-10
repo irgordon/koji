@@ -49,6 +49,8 @@ Grant the minimum capability set required for the task.
 
 Koji prevents disabling the final active Super Admin and prevents removing the final active user with `identity.users.manage`.
 
+For current residual risks and recommended actions, see `docs/wiki/Security/Security-Review.md` and `docs/wiki/Security/Threat-Model.md`.
+
 ## 5. Agent Security
 
 The daemon communicates with the agent over a Unix-domain socket.

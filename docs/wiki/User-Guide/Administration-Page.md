@@ -8,9 +8,9 @@ The Administration page gives identity administrators a UI for controlled user a
 
 ## How It Works
 
-The page lists users, shows whether each account is enabled, marks Super Admin accounts, and exposes controls for user creation, enable/disable, capability grant/revoke, and magic token issue.
+The page lists users, shows whether each account is enabled, marks Super Admin accounts, and exposes controls for user creation, enable/disable, capability grant/revoke, and magic token issue. User administration requires `identity.users.manage`.
 
-Magic tokens are displayed once after issuance. Copy them immediately through the approved operational channel.
+Magic tokens are displayed once after issuance. Copy them immediately through the approved operational channel. Disabled users cannot receive usable magic tokens.
 
 ## What Protects It
 

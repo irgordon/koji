@@ -18,6 +18,12 @@ For implementation inventory, use:
 - `wiki/Developer/Frontend-Inventory.md`
 - `wiki/Developer/Phase-History.md`
 
+For release readiness and security review, use:
+
+- `wiki/Operations/Release-Candidate-Checklist.md`
+- `wiki/Security/Security-Review.md`
+- `wiki/Security/Threat-Model.md`
+
 Core invariant:
 
 ```text

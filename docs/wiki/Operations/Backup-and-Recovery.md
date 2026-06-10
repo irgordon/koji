@@ -1,6 +1,6 @@
 # Backup and Recovery
 
-[Home](../Home.md) | Related: [Database Schema](../Developer/Database-Schema.md), [Upgrade Procedure](Upgrade-Procedure.md), [Disaster Recovery](Disaster-Recovery.md), [Release Rollback](Release-Rollback.md)
+[Home](../Home.md) | Related: [Database Schema](../Developer/Database-Schema.md), [Upgrade Procedure](Upgrade-Procedure.md), [Release Candidate Checklist](Release-Candidate-Checklist.md), [Disaster Recovery](Disaster-Recovery.md), [Release Rollback](Release-Rollback.md)
 
 ## What Is Backed Up
 

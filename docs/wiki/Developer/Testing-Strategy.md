@@ -8,11 +8,11 @@ Tests prevent security, workflow, packaging, and UI regressions from reaching re
 
 ## How It Works
 
-Go tests cover backend packages. Vitest covers frontend behavior and accessibility primitives. Packaging scripts validate release layout and checksums.
+Go tests cover backend packages. Vitest covers frontend behavior and accessibility primitives. Packaging scripts validate release layout, checksums, documentation, OpenAPI, and code-quality guardrails.
 
 ## What Protects It
 
-CI runs frontend tests before build and release packaging. Release smoke tests validate downloaded artifacts before publish.
+CI runs frontend tests before build and release packaging. Release smoke tests validate downloaded artifacts before publish. Maintainers should use the [Release Candidate Checklist](../Operations/Release-Candidate-Checklist.md) before tagging or promoting a release.
 
 ## What Can Fail
 

@@ -10,6 +10,8 @@ Observability answers whether Koji's control plane is healthy without requiring 
 
 Koji maintains in-process counters for jobs, worker polling, agent RPC, auth outcomes, audit writes, and readiness checks. The UI reads them through a governed API requiring `observability.metrics.read`.
 
+Important counters include `jobs_created_total`, `jobs_completed_total`, `jobs_failed_total`, `agent_rpc_requests_total`, `agent_rpc_failures_total`, `auth_login_success_total`, `auth_login_failure_total`, `audit_writes_total`, and `audit_write_failures_total`. The authoritative list is [Metrics Reference](../Reference/Metrics-Reference.md).
+
 ## What Protects It
 
 Metrics expose fixed control-plane counters and job status aggregates only. They do not expose user data, sessions, raw audit internals, or host process details.

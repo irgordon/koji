@@ -1,6 +1,6 @@
 # Upgrade Procedure
 
-[Home](../Home.md) | Related: [Backup and Recovery](Backup-and-Recovery.md), [Release Rollback](Release-Rollback.md), [Release Operations](Release-Operations.md)
+[Home](../Home.md) | Related: [Backup and Recovery](Backup-and-Recovery.md), [Release Candidate Checklist](Release-Candidate-Checklist.md), [Release Rollback](Release-Rollback.md), [Release Operations](Release-Operations.md)
 
 ## Purpose
 

@@ -9,11 +9,11 @@
 | `unauthenticated` | Sign in before using the view |
 | `forbidden` | The account lacks permission |
 | `csrf_missing_or_invalid` | Refresh or sign in again |
-| `agent_unavailable` | The local agent cannot be reached |
-| `agent_not_implemented` | Service control is not enabled in this build path |
-| `mutation_disabled` | Agent mutation is disabled by configuration |
+| `agent_unavailable` | The local agent cannot be reached; approved jobs cannot run until `koji-agent` is running |
+| `agent_not_implemented` | The agent does not implement the requested action |
+| `mutation_disabled` | Agent mutation is disabled by configuration; approved jobs will not run until intentionally enabled |
 | `service_not_allowlisted` | The service is not in Koji's allowlist |
-| `job_conflict` | The job is no longer queued |
+| `job_conflict` | The job is no longer waiting for approval |
 | `validation_error` | One or more request fields were invalid |
 | `network_error` | Browser cannot reach Koji |
 | `unexpected_response` | Response shape was not expected |

@@ -77,6 +77,7 @@ Primary architecture pages:
 - [Disaster Recovery](Operations/Disaster-Recovery.md)
 - [Release Rollback](Operations/Release-Rollback.md)
 - [Release Operations](Operations/Release-Operations.md)
+- [Release Candidate Checklist](Operations/Release-Candidate-Checklist.md)
 - [Troubleshooting](Operations/Troubleshooting.md)
 
 ## User Guide

@@ -60,6 +60,8 @@ make pre-upgrade-check
 make verify-upgrade
 ```
 
+Before tagging a release candidate, use the [Release Candidate Checklist](docs/wiki/Operations/Release-Candidate-Checklist.md).
+
 ## Release
 
 Tagged releases are built by GitHub Actions from a clean checkout. The workflow builds Linux amd64 binaries, packages a staged rootfs archive, verifies checksums, smoke-tests the downloaded artifact set, and only then publishes release assets:
