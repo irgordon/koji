@@ -62,6 +62,7 @@ Primary architecture pages:
 - [Audit](Security/Audit.md)
 - [Service Allowlists](Security/Service-Allowlists.md)
 - [Agent Mutation Controls](Security/Agent-Mutation-Controls.md)
+- [Security Review](Security/Security-Review.md)
 - [Threat Model](Security/Threat-Model.md)
 
 ## Operations

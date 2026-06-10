@@ -70,6 +70,7 @@ This project follows a forward-only operational style. Database schema changes r
 - Magic token TTL configuration with a secure bounded default.
 - Code quality audit documentation and `packaging/scripts/verify_code_quality.sh`.
 - Production readiness review for identity, jobs, observability, backup/restore, and page-level operator workflows.
+- Security review and repo-grounded threat model validation.
 
 ### Changed
 
